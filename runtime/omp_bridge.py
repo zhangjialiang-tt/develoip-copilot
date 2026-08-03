@@ -71,6 +71,39 @@ def classify_bash(command: str) -> tuple[str, str]:
     return "READ", ""
 
 
+def _bash_write_targets(command: str) -> list[str]:
+    """Extract candidate write-target tokens from a bash command.
+
+    Heuristic, documented in milestone3-omp-decisions.md. Used by the guard to
+    decide whether a command writes INTO a governed scope (target-aware), as
+    opposed to merely mentioning a governed path (e.g. as a copy source).
+    """
+    targets: list[str] = []
+    # redirections: > file, >> file, 1> file, 2> file, &> file (with or without space)
+    for match in re.finditer(r"(?:^|[;&|]|\s)(?:[12]?>>?|&>)\s*([^\s;&|]+)", command):
+        targets.append(match.group(1))
+    # -o / -of target
+    for match in re.finditer(r"(?:^|\s)(?:-o|-of)\s+([^\s]+)", command):
+        targets.append(match.group(1))
+    # dd of=target
+    for match in re.finditer(r"\bof=([^\s]+)", command):
+        targets.append(match.group(1))
+    # cp/mv/install destination = last positional token
+    match = re.search(r"\b(?:cp|mv|install)\s+.*?\s([^\s]+)\s*$", command)
+    if match:
+        targets.append(match.group(1))
+    # sed -i <expr> <file>: last positional token
+    if re.search(r"\bsed\s+(-i\b|--in-place)", command):
+        match = re.search(r"\bsed\s+(-i\b|--in-place)\s+.*?\s([^\s]+)\s*$", command)
+        if match:
+            targets.append(match.group(2))
+    # git working-tree mutations with paths: checkout -- / restore / reset / clean
+    match = re.search(r"\bgit\s+(?:checkout(?:\s+--)?|restore|reset|clean)\s+(.*)$", command)
+    if match:
+        targets.extend(token for token in re.split(r"\s+", match.group(1)) if token and not token.startswith("-"))
+    return targets
+
+
 class BridgeServer:
     """Handles bridge ops against one Runtime instance."""
 
@@ -169,7 +202,10 @@ class BridgeServer:
         validated = self._op_invoke_role_result(params)["validated"]
         task = self.runtime.query(params.get("request", {}).get("task_ref", ""), "Task")
         actor = params.get("actor") or validated["role"]
-        candidates = build_candidate_commands(validated, task, actor)
+        try:
+            candidates = build_candidate_commands(validated, task, actor)
+        except ValueError as error:
+            raise ContractError("CANDIDATE_INVALID", str(error)) from error
         return {"validated": validated, "candidate_commands": candidates, "note": "Candidates are proposals; dispatch each via dc_dispatch."}
 
     def _op_guard_check(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -196,7 +232,7 @@ class BridgeServer:
             if classification == "READ":
                 return {"allowed": True, "reason": "BASH_READ_ONLY"}
             cwd = normalize_path(params.get("cwd") or "")
-            governed = [task for task in active_tasks if self._cwd_governed(cwd, params.get("command") or "", task)]
+            governed = [task for task in active_tasks if self._bash_governed(cwd, params.get("command") or "", task)]
             if not governed:
                 return {"allowed": True, "reason": "BASH_OUTSIDE_GOVERNED_SCOPE", "classification": classification, "matched": matched}
             return self._approval_decision(governed, classification=classification, matched=matched)
@@ -337,16 +373,23 @@ class BridgeServer:
                 return True
         return False
 
-    def _cwd_governed(self, cwd: str, command: str, task: dict[str, Any]) -> bool:
-        for scope_path in task.get("scope", {}).get("paths", []):
-            root = normalize_path(scope_path)
-            if not root:
-                continue
-            if cwd and (cwd == root or cwd.startswith(root + "/")):
-                return True
-            if root in command:
-                return True
-        return False
+    def _bash_governed(self, cwd: str, command: str, task: dict[str, Any]) -> bool:
+        """Target-aware bash governance: governed when the cwd OR an actual
+        write target (redirection, -o, dd of=, cp/mv destination, sed -i file,
+        git mutation path) lies inside the task scope. A governed path that
+        only appears as a SOURCE (e.g. cp from the pilot to %TEMP%) does not
+        count as a write into the scope."""
+        scope_paths = [normalize_path(p) for p in task.get("scope", {}).get("paths", []) if normalize_path(p)]
+        if not scope_paths:
+            return False
+
+        def in_scope(value: str) -> bool:
+            normalized = normalize_path(value)
+            return bool(normalized) and any(normalized == root or normalized.startswith(root + "/") for root in scope_paths)
+
+        if cwd and in_scope(cwd):
+            return True
+        return any(in_scope(target) for target in _bash_write_targets(command))
 
     def _snapshot_path(self) -> Path:
         return self.state_dir / "snapshot.json"

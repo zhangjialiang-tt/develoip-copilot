@@ -157,3 +157,53 @@ isolation（worktree/clone 原工作区零触碰 + patch 生成 + 清理）、br
 | 9 | Milestone 2 tests 保持通过 | **PASS** | pytest 99 passed（含 M2 41） |
 
 **Gate B = PASS（9/9）**。待 Batch 5 前定义 `candidate_write_scope` 并细化 approval-scope 精确匹配。
+
+---
+
+# Batch 3 — OMP 专业角色集成（2026-08-03）
+
+## 实现
+
+- `.omp/agents/dc-*.md` 六个角色代理（name/description/tools allowlist/角色纪律 systemPrompt/输出协议）。
+- 子代理一律不含 `dc_dispatch`；状态变更只经主控 `dc_submit_candidates` → `dc_dispatch`。
+
+## 真实子代理链路（Gate C 最小调用）
+
+| 角色 | 子代理 | 时长 | 产出 | 验证点 |
+| --- | --- | --- | --- | --- |
+| System Investigator | 真实 OMP 子代理 | 7m43s | 5 证据 + 6 声明 + 3 风险 + handoff | 静态交叉核对；被 dc-guard 拒绝创建隔离副本（WRITE 缺失）——Guard 生效实证 |
+| Verification Engineer | 真实 OMP 子代理 | 5m58s | 2 工件 + 2 复现证据(E1) + 1 INFERENCE + 4 风险 | `%TEMP%/dc-verify-qspi` 隔离复现 TEST PASSED errors=0；复跑前后试点 CLEAN、哈希不变 |
+| Integration Reviewer | 真实 OMP 子代理 | 2m38s | 1 评审工件 + 5 声明 → CONDITIONAL_ACCEPT | sim.log 物理核实、哈希复算、独立性/基线一致性；RECORD_ACCEPTANCE 入账 |
+
+Runtime 状态（task-qspi-invest，baseline-qspi-a）：evidence=9、claims=7、artifacts=2、handoffs=1、
+acceptance=CONDITIONALLY_ACCEPTED；gates：simulation=SATISFIED、integration=SATISFIED、
+root_cause/implementation/record=UNSATISFIED（调查任务正常态）。
+
+## 候选校验拦截实证（Gate C #8）
+
+- `risk_type` ≠ 契约 `risk_factor` → CANDIDATE_INVALID（BRIDGE_INTERNAL_ERROR 已改为契约错误码）。
+- `claim_type: verification_result` 不在 {FACT,OBSERVATION,INFERENCE,DECISION,HYPOTHESIS} → INVALID_ENUM。
+- `integration-reviewer` REGISTER_ARTIFACT/CREATE_CLAIM → OWNERSHIP_VIOLATION（Reviewer 状态表达=Acceptance）。
+
+## 修复的两个真实缺陷
+
+1. Guard bash 目标感知（verification-engineer 报告）：`cp <治理路径> %TEMP%` 误判为治理写入 →
+   `_bash_write_targets` + `_bash_governed` 目标感知判定；`tests/bridge/` 新增回归（含 cp 拷出放行、重定向/cp 写入作用域拦截）。
+2. RECORD_ACCEPTANCE 大小写缺陷（D2）：`target["object_type"]="Claim"` vs 允许集 `"CLAIM"` → `.upper()` 归一化 + 回归测试。
+
+## Gate C 判定
+
+| # | Gate C 项 | 判定 | 证据 |
+| --- | --- | --- | --- |
+| 1 | ≥3 角色由真实 OMP 子代理执行 | **PASS** | investigator / verification-engineer / integration-reviewer 真实子代理（上表） |
+| 2 | Role Invocation 不再使用测试 Stub | **PASS** | 链路全部真实子代理；候选经 dc_submit_candidates |
+| 3 | Tool Allowlist 有效 | **PASS** | 角色 frontmatter tools；Investigator 无写工具 |
+| 4 | Investigator 无 WRITE | **PASS** | allowlist 无写工具；其隔离副本创建被 dc-guard 拒绝（WRITE 缺失） |
+| 5 | Engineer 无 Acceptance 权限 | **PASS** | ROLE_RULES：verification-engineer 无 RECORD_ACCEPTANCE/ACCEPT_HANDOFF |
+| 6 | Reviewer 无实现权限 | **PASS** | reviewer REGISTER_ARTIFACT → OWNERSHIP_VIOLATION；allowlist 只读 |
+| 7 | Documenter 无状态迁移权限 | **PASS（定义级）** | ROLE_RULES：documenter 仅 RECORD_DECISION；Batch 6 实跑 |
+| 8 | 非结构化结果不自动激活 | **PASS** | CANDIDATE_INVALID / INVALID_ENUM / OWNERSHIP_VIOLATION 三次拦截实证 |
+| 9 | 子代理失败形成正确 Blocker | **PASS（定义级）** | blocker_proposals → CREATE_BLOCKER（角色均允许）；本批无失败场景 |
+| 10 | OMP task 隔离结果可回收和审查 | **PASS** | `%TEMP%/dc-verify-qspi` 目录/日志/波形留档；Reviewer 物理核实 |
+
+**Gate C = PASS（10/10）**。

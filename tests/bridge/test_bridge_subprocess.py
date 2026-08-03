@@ -136,6 +136,36 @@ def test_guard_blocks_then_allows_after_approval_then_blocks_after_revoke(tmp_pa
         bridge.stop()
 
 
+def test_guard_bash_target_aware_copy_out_is_allowed(tmp_path):
+    """cp FROM a governed scope TO a temp target must not require approval
+    (regression for the source-path false positive)."""
+    bridge = BridgeProcess(tmp_path / "state")
+    try:
+        create_started_task(bridge, scope_paths=("common/rtl/dev/qspi_flash",))
+        decision = bridge.request("guard_check", {
+            "tool_name": "bash",
+            "command": "cp common/rtl/dev/qspi_flash/qspi_driver_new.v /tmp/dc-isolation/",
+            "cwd": "/tmp/dc-isolation",
+        })
+        assert decision["allowed"] is True, decision
+        # but writing INTO the scope via redirection with a neutral cwd is governed
+        blocked = bridge.request("guard_check", {
+            "tool_name": "bash",
+            "command": "echo x > common/rtl/dev/qspi_flash/out.txt",
+            "cwd": "/elsewhere",
+        })
+        assert blocked["allowed"] is False and blocked["code"] == "APPROVAL_REQUIRED", blocked
+        # and cp INTO the scope is governed
+        blocked_copy = bridge.request("guard_check", {
+            "tool_name": "bash",
+            "command": "cp /tmp/x.v common/rtl/dev/qspi_flash/",
+            "cwd": "/tmp",
+        })
+        assert blocked_copy["allowed"] is False and blocked_copy["code"] == "APPROVAL_REQUIRED", blocked_copy
+    finally:
+        bridge.stop()
+
+
 def test_guard_bash_classification(tmp_path):
     bridge = BridgeProcess(tmp_path / "state")
     try:

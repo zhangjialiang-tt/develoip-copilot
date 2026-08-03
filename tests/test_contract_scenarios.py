@@ -160,6 +160,20 @@ def test_S21_parent_and_child_use_the_same_task_model():
     assert runtime.query("child")["execution_status"] == "PROPOSED"
 
 
+def test_S23_acceptance_without_explicit_target_type_resolves_uppercase():
+    """Regression: RECORD_ACCEPTANCE must accept the derived object_type
+    ('Claim') by normalizing to the uppercase enum ('CLAIM')."""
+    runtime = Runtime()
+    runtime.dispatch(command("create", "CREATE_TASK", "orchestrator", payload={"task_id": "task-1", "goal": "x"}))
+    runtime.dispatch(command("classify", "CLASSIFY_TASK", "orchestrator", target="task-1", payload={"task_kind": "investigation", "primary_domain": "qspi", "domains": ["rtl"], "risk_factors": [], "required_capabilities": [], "execution_mode": "DIRECT", "scope": {"paths": ["a"]}}))
+    runtime.dispatch(command("baseline", "BIND_BASELINE", "orchestrator", target="task-1", payload={"baseline_id": "b1", "code_revision_or_workspace_snapshot": "abc", "configuration_set": {}, "toolchain_versions": {}, "input_data_refs": []}))
+    runtime.dispatch(command("claim", "CREATE_CLAIM", "verification-engineer", target="task-1", payload={"claim_id": "claim-1", "statement": "s", "claim_type": "INFERENCE"}))
+    result = runtime.dispatch(command("accept", "RECORD_ACCEPTANCE", "integration-reviewer", target="claim-1", payload={"acceptance_status": "ACCEPTED", "acceptance_scope": "s", "acceptance_basis": "b", "baseline_ref": "b1"}))
+    acceptance = result["event"]["payload"]["object"]
+    assert acceptance["target_type"] == "CLAIM"
+    assert runtime.query("task-1")["acceptance_summary"]["technical_acceptance"] == "ACCEPTED"
+
+
 def test_S22_overlapping_file_scope_is_rejected():
     runtime = Runtime()
     ready_task(runtime, "task-1")

@@ -10,3 +10,4 @@ runtime.snapshot.json
 
 # develoip-copilot bridge runtime state (event store, snapshots, logs)
 .omp/dc-state/
+.workbuddy/

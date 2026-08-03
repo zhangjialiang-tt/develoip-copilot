@@ -540,7 +540,7 @@ class Runtime:
         target = self._query_any(target_ref)
         if target is None:
             self._reject("OBJECT_NOT_FOUND", "Acceptance target not found")
-        target_type = command["payload"].get("target_type") or target["object_type"]
+        target_type = (command["payload"].get("target_type") or target["object_type"]).upper()
         if target_type == "RISK":
             self._reject("ACCEPTANCE_TARGET_INVALID", "Risk must use Waiver")
         if target_type not in {"HANDOFF", "ARTIFACT", "CLAIM", "TASK_RESULT"}:

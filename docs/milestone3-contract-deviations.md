@@ -3,6 +3,16 @@
 > 记录 Milestone 3 实施中与 `docs/execution-contract.md`（Milestone 1.5 冻结契约）不一致的行为。
 > 无偏差的方面明确声明：截至本文件更新时，除下列条目外 No known contract deviations。
 
+## D2 — RECORD_ACCEPTANCE 目标类型大小写缺陷（已修复 2026-08-03）
+
+- `_command_record_acceptance` 的 target_type 回退值取自 `target["object_type"]`（如 `"Claim"`），
+  与允许集 `{"HANDOFF","ARTIFACT","CLAIM","TASK_RESULT"}` 大小写不匹配 → 不带显式 `target_type`
+  的 RECORD_ACCEPTANCE 必然误拒 `ACCEPTANCE_TARGET_INVALID`。真实链路中由 Integration Reviewer
+  验收 Claim 时触发。
+- 修复：`runtime/core.py` 对 target_type 做 `.upper()` 归一化；回归测试
+  `tests/test_contract_scenarios.py::test_S23_acceptance_without_explicit_target_type_resolves_uppercase`。
+- 属契约实现缺陷修复（非语义放宽）；M2 既有测试不受影响。
+
 ## D1 — `/dc pause` 无契约支撑（OPEN）
 
 - 计划 §8.5 要求最小命令集包含 `/dc pause`。

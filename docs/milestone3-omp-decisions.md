@@ -108,3 +108,20 @@ git diff --check
 - Bridge 接入：`workspace_status` 真实化（adapter 快照+分类）；新 op `capture_baseline`（只读）；Guard 增加 `WORKSPACE_CONFLICTING/WORKSPACE_UNKNOWN` 拦截（分类禁写）；`dc_capture_baseline` 工具注册。
 - 隔离语义：试点仿真在临时镜像（`%TEMP%/dc-pilot-sim`）中运行，用户工作区零修改（已校验 CLEAN 保持）。
 - 待办：`candidate_write_scope` 留空（Batch 5 前由用户定义）；approval-scope 精确匹配在 Batch 5 细化。
+
+## 10. Batch 3 决策（OMP 专业角色集成）
+
+- 角色代理：`.omp/agents/dc-{orchestrator,system-investigator,rtl-engineer,verification-engineer,integration-reviewer,engineering-documenter}.md`
+  （OMP 项目级任务代理发现，`.omp` 优先于内置）。frontmatter `tools` 即 OMP 层 Tool Allowlist；
+  输出协议（§10 字段 + 禁止字段）写入每个角色的 systemPrompt。
+- **子代理一律不授予 `dc_dispatch`**：Runtime 状态变更只经主控 `dc_submit_candidates`（校验+角色绑定）
+  → `dc_dispatch`。这是"角色不可直接写状态"的 OMP 层强制（Runtime 层由 ROLE_RULES ownership 兜底）。
+- 最小真实链路（Gate C #1/#2，均真实 OMP 子代理）：
+  1. `dc-system-investigator`（7m43s）：静态交叉核对 + node_repl 计算，产出 5 证据/6 声明/3 风险/handoff；被 dc-guard 拒绝在试点 cwd 内创建隔离副本（WRITE 权限缺失）→ 意外验证 Guard 生效。
+  2. `dc-verification-engineer`（5m58s）：`%TEMP%/dc-verify-qspi` 隔离副本独立复现 vsim → TEST PASSED errors=0，复跑前后试点仓库 CLEAN、四文件哈希不变（零写副作用，E1）。
+  3. `dc-integration-reviewer`（2m38s）：证据链物理核实（sim.log 存在/哈希复算/TB 期望核对）+ 独立性 + 基线一致性 → **CONDITIONAL_ACCEPT**，经 `RECORD_ACCEPTANCE`（CONDITIONALLY_ACCEPTED）入账，`integration_gate=SATISFIED`。
+- 候选校验拦截实证（Gate C #8）：`risk_type`≠`risk_factor` → CANDIDATE_INVALID；`claim_type: verification_result` 不在枚举 → INVALID_ENUM；`integration-reviewer` REGISTER_ARTIFACT/CREATE_CLAIM → OWNERSHIP_VIOLATION（Reviewer 的状态表达是 Acceptance 而非 Claim——契约正确）。
+- 发现并修复两个真实缺陷：
+  1. **Guard bash 误判**（verification-engineer 报告）：`_cwd_governed` 用 `root in command` 子串匹配，`cp <治理路径> %TEMP%` 被误判为治理内写入。修复为**目标感知** `_bash_write_targets`（重定向/-o/dd of=/cp|mv 目标/sed -i 文件/git 变更路径）+ `_bash_governed`（cwd 或写目标在作用域内才算治理）。回归测试见 `tests/bridge/`。
+  2. **RECORD_ACCEPTANCE 大小写缺陷**（D2）：见 `docs/milestone3-contract-deviations.md`。
+- 角色输出 `basis_refs`/`conditions` 等非标准字段在候选构建时透传、由 Command handler 按契约字段消费（多余字段不落库）——已确认行为。
