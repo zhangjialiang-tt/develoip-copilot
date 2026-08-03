@@ -1,135 +1,57 @@
-# develoip-copilot 整体架构设计蓝图
+# develoip-copilot 整体架构设计蓝图 v1.2
 
 > 暂定名称：`develoip-copilot`
-> 文档性质：全局架构冻结蓝图
-> 当前阶段：架构设计，不生成正式 Skill、Subagent、Schema、脚本或平台配置
-> 目标平台：第一阶段平台中立，后续重点适配 OMP/pi
+> 文档性质：全局架构与运行时契约蓝图
+> 冻结状态：Milestone 1 候选冻结版
+> 当前阶段：不生成正式 Skill、Subagent、Schema、脚本或平台配置
+> 目标平台：平台中立设计，后续重点适配 OMP/pi
 
 ---
 
-## 1. 项目定位
+# 1. 项目定位
 
-`develoip-copilot` 不是一个巨型 Skill，也不是单一 FPGA 编程助手。
+`develoip-copilot` 是一套面向 FPGA、嵌入式固件和基础图像算法开发的工程 Agent 能力体系。
 
-它是一套面向 FPGA、软核嵌入式固件和基础图像算法开发的工程 Agent 能力体系，主要帮助工程师承担高频、重复、耗时但又要求工程严谨性的工作，包括：
+它覆盖：
 
-- 工程结构和既有实现探索；
-- Bug 现象、证据、假设和实验过程整理；
-- 仿真环境、测试框架和回归体系搭建；
-- RTL 模块设计、修改和验证；
-- RISC-V/C 固件、外设驱动和辅助程序开发；
-- Python、MATLAB、C++ 参考模型与算法验证；
-- 设计方案、接口说明、调试报告和交接文档维护；
-- 项目发展状态和关键工程事实沉淀。
+- Verilog、SystemVerilog、VHDL 等 RTL 开发；
+- FPGA 仿真、回归、时序分析与板级问题定位；
+- RISC-V 软核上的 C 固件和外设驱动；
+- Python、MATLAB、C++ 图像与信号处理参考模型；
+- RTL、固件、算法模型之间的一致性验证；
+- 设计方案、调试报告、验证记录和项目发展记录维护。
 
-系统的首要价值不是代替工程师作出所有决策，而是：
+系统的目标不是让 Agent 无限制替代工程师，而是：
 
-> 让 Agent 承担工程中的脏活、累活和重复劳动，同时保留明确的责任边界、修改权限、验证证据和人工控制。
+> 在权限受控、任务状态明确、证据可追溯、实现与验证适度隔离的前提下，让 Agent 承担工程中的重复劳动和执行性工作。
 
 ---
 
-## 2. 第一阶段目标
+# 2. 第一阶段目标
 
-第一阶段只完成两件事：
+第一阶段完成：
 
-1. 冻结整个能力体系的全局架构和最小契约；
-2. 选择一个真实工程能力作为纵向样板，验证架构能否落地。
+1. 冻结能力体系的全局架构；
+2. 冻结最小运行时契约；
+3. 选择一个真实 FPGA Bug 作为纵向样板验证架构。
 
-第一阶段不直接追求：
+第一阶段不完成：
 
-- 完整 Skill 数量；
-- 完整 Subagent 实现；
-- OMP/pi Extension；
-- 自动化项目生命周期管理；
-- 所有平台兼容；
-- 所有工程场景覆盖；
-- 完整目录和字段冻结。
+- 全量 Skill；
+- 全量 Subagent；
+- 完整 OMP/pi Extension；
+- 无人值守开发；
+- 完整项目生命周期自治；
+- 全 FPGA 场景风险规则；
+- 目录和字段的最终物理格式。
 
-第一阶段的核心成功标准是：
+成功标准：
 
-> 后续增加 Skill、Subagent、工具或平台适配时，不需要重新拆分整个系统的职责层次。
-
----
-
-## 3. 架构原则
-
-### 3.1 Agent 负责完成工程结果
-
-需要持续理解上下文、多轮判断、调用多个方法和工具，并对完整工程结果负责的能力，应由 Agent 或 Subagent 承担。
-
-例如：
-
-- 完成一个 RTL 模块实现；
-- 建立并跑通一个仿真环境；
-- 调查一个跨软硬件 Bug；
-- 完成一个固件外设驱动；
-- 审查一次高风险设计修改。
-
-这些都不应被整体实现成 Skill。
-
-### 3.2 Skill 只承载可复用方法
-
-Skill 用于提供稳定、可复用、平台中立的方法、规范、检查表和工作策略。
-
-例如：
-
-- RTL 接口分析方法；
-- CDC 风险检查方法；
-- AXI/AXIS 验证规则；
-- testbench 架构规范；
-- Bug 证据链组织方法；
-- RTL 与参考模型一致性检查流程；
-- 调试报告编写规范。
-
-Skill 不拥有长期工程状态，不决定调用其他 Agent，也不独立承担端到端工程目标。
-
-### 3.3 工具负责确定性操作
-
-可以被明确输入、重复执行并获得可验证输出的动作，应实现为工具或脚本。
-
-例如：
-
-- 扫描 RTL 端口和参数；
-- 解析仿真日志；
-- 执行编译和回归；
-- 比较二进制数据；
-- 提取时序路径；
-- 收集 Git 状态；
-- 验证记录引用；
-- 生成状态索引。
-
-### 3.4 顶层编排器不亲自实施专业工作
-
-顶层编排器负责理解目标、任务拆分、角色选择、授权管理和产物交接，但不亲自实现 RTL、搭建 testbench 或整理完整调试报告。
-
-### 3.5 默认最小权限
-
-任何 Agent 只能访问完成当前职责所需的文件、工具和命令。
-
-“可以修改代码”不等于可以修改整个工程。
-
-### 3.6 工程结论必须由证据支持
-
-系统不得把 Agent 的自信表达当作验证结果。
-
-工程结论应关联：
-
-- 文件和代码位置；
-- 仿真或测试结果；
-- 波形、日志或数据；
-- commit、分支或版本；
-- 可重复执行的验证步骤；
-- 明确标记的人工判断。
-
-### 3.7 项目记录按需使用
-
-项目发展记录不是每轮交互自动注入的“长期记忆”。
-
-默认不读取，按需下钻；默认不写入，达到工程事件阈值后建议记录。
+> 后续增加 Agent、Skill、Tool 和平台适配时，不需要重新划分核心职责，也不需要重做任务、权限、证据、接受和关闭模型。
 
 ---
 
-## 4. 总体逻辑架构
+# 3. 总体架构
 
 ```text
 用户
@@ -137,909 +59,1334 @@ Skill 不拥有长期工程状态，不决定调用其他 Agent，也不独立�
   ▼
 顶层编排 Agent
   │
-  ├── 任务识别与拆分
-  ├── 风险与授权判断
-  ├── Subagent 选择
-  ├── 执行顺序与依赖管理
-  ├── 交接产物校验
-  └── 结果汇总
+  ▼
+任务运行时
   │
   ▼
-专业 Subagent 层
-  │
-  ├── 领域 Subagent
-  │   ├── RTL Engineer
-  │   ├── Verification Engineer
-  │   ├── Firmware Engineer
-  │   └── Algorithm Engineer
-  │
-  └── 跨领域 Subagent
-      ├── System Investigator
-      ├── Engineering Documenter
-      └── Integration Reviewer
+专业 Subagent
   │
   ▼
-可复用 Skill 层
-  │
-  ├── 分析方法
-  ├── 设计规范
-  ├── 验证策略
-  ├── 调查方法
-  ├── 文档规范
-  └── 检查清单
-  │
-  ▼
-工具与脚本层
-  │
-  ├── 工程扫描
-  ├── 构建与仿真
-  ├── 日志与波形处理
-  ├── 数据比较
-  ├── Git 信息采集
-  └── 记录校验
+Skills + Tools
 ```
 
-以下基础设施横跨所有层：
+三个横向平面：
 
 ```text
-- 输入输出契约
-- 权限与审批策略
-- 工程事实与记录系统
-- 证据引用模型
-- 平台适配层
+Control Plane
+- 任务分类
+- 执行模式
+- 状态管理
+- 权限审批
+- 路由依赖
+- 风险策略
+- 失败恢复
+- 接受与关闭
+
+Evidence Plane
+- Artifact Registry
+- Evidence Registry
+- Claim Registry
+- Baseline Binding
+- Evidence Invalidation
+- Acceptance Basis
+
+Knowledge Plane
+- Task Record
+- Investigation Record
+- Decision Record
+- Verification Record
+- Knowledge Record
+- Project Status
+- Change/Event Log
 ```
 
 ---
 
-## 5. 顶层编排 Agent
+# 4. 核心分工
 
-## 5.1 职责
-
-顶层编排器负责：
-
-- 理解用户的最终目标；
-- 判断是单任务还是多步骤任务；
-- 判断是否需要读取项目状态；
-- 将目标拆成可交付的专业任务；
-- 为每个任务选择合适的 Subagent；
-- 设定输入、输出、文件范围和权限；
-- 安排串行、并行、回退和复核路径；
-- 管理风险分级审批；
-- 判断是否需要独立验证；
-- 检查 Subagent 的输出契约；
-- 判断是否形成值得长期记录的工程事件；
-- 向用户汇总结果、风险和下一步。
-
-## 5.2 非职责
-
-顶层编排器不应：
-
-- 直接编写复杂 RTL；
-- 直接搭建完整验证环境；
-- 直接维护项目历史记录；
-- 直接替代专业 Subagent 作出领域结论；
-- 微观调度每一个命令；
-- 把所有工程步骤拆成几十个原子 Skill；
-- 无授权扩大文件修改范围；
-- 默认读取全部项目历史。
-
-## 5.3 编排范围
-
-第一阶段支持：
-
-- 单任务路由；
-- 多步骤任务编排；
-- 串行任务交接；
-- 必要的并行分析；
-- 实现与验证分离；
-- 任务级状态和授权管理。
-
-第一阶段暂不承担：
-
-- 跨会话长期自主运行；
-- 完整项目生命周期管理；
-- 自动里程碑规划；
-- 长期资源调度；
-- 自动 PR、发布和版本管理；
-- 无人值守持续演进。
-
-这些能力留给后续 OMP/pi 深度开发。
-
----
-
-## 6. Subagent 角色模型
-
-Subagent 采用“领域角色为主、跨领域角色补充”的混合划分。
-
-## 6.1 领域 Subagent
-
-### RTL Engineer
+## 4.1 顶层编排 Agent
 
 负责：
 
-- RTL 方案细化；
-- 模块设计与实现；
-- RTL 缺陷修复；
-- 相关局部自测；
-- 实现说明和影响范围报告。
+- 理解用户目标；
+- 选择执行模式；
+- 分类任务；
+- 判断风险；
+- 确定权限；
+- 拆分任务；
+- 选择 Subagent；
+- 建立依赖；
+- 管理审批；
+- 绑定基线；
+- 处理失败和冲突；
+- 执行关闭门禁；
+- 决定是否建议写入项目记录。
 
-其权限仅限授权范围内的 RTL、约束或必要验证文件。
+不负责：
 
-### Verification Engineer
+- 承担复杂专业实现；
+- 替代验证者；
+- 直接维护长期项目事实；
+- 微观调度每条命令；
+- 自行扩大授权范围。
 
-负责：
+## 4.2 Subagent
 
-- 验证目标分析；
-- testbench 和仿真框架设计；
-- 激励、检查器、scoreboard 和参考数据构建；
-- 回归执行与失败分析；
-- 对高风险实现进行独立验收。
+Subagent 对完整专业结果负责。
 
-默认不得修改生产 RTL，除非任务被重新路由为 RTL 实现任务。
+领域角色：
 
-### Firmware Engineer
+- RTL Engineer
+- Verification Engineer
+- Firmware Engineer
+- Algorithm Engineer
 
-负责：
+跨领域角色：
 
-- RISC-V/C 固件开发；
-- 外设驱动和协议控制；
-- 构建脚本及固件级测试；
-- FPGA 寄存器和软硬件接口适配；
-- 固件问题定位和修复。
+- System Investigator
+- Engineering Documenter
+- Integration Reviewer
 
-其权限限于授权的嵌入式代码和相关测试资产。
+## 4.3 Skill
 
-### Algorithm Engineer
+Skill 只承载稳定、复用、平台中立的方法和规范。
 
-负责：
+Skill 不负责：
 
-- Python、MATLAB、C++ 参考模型；
-- 图像和信号处理算法验证；
-- 定点化、量化和误差分析；
-- 参考模型与 RTL 行为对比；
-- 算法实现说明和测试数据生成。
+- 完整工程目标；
+- 长期状态；
+- 权限隔离；
+- 多 Agent 调度；
+- 顶层关闭判断。
 
-其权限限于算法、模型和相关验证资产。
+## 4.4 Tool
 
-## 6.2 跨领域 Subagent
+Tool 负责确定性操作：
 
-### System Investigator
-
-负责跨 RTL、固件、算法、板级现象和工具链的系统性调查。
-
-其主要结果不是代码，而是：
-
-- 准确的问题陈述；
-- 观察事实；
-- 证据索引；
-- 根因假设；
-- 已执行实验；
-- 已排除方向；
-- 当前最可能根因；
-- 推荐的下一步专业任务。
-
-默认只读，不修改正式设计代码。
-
-### Engineering Documenter
-
-负责：
-
-- 整理工程文档；
-- 维护项目发展记录；
-- 压缩专业 Subagent 的过程输出；
-- 去重和冲突检查；
-- 更新当前状态投影；
-- 生成交接材料和阶段报告。
-
-它不能自行创造工程事实，只能整理有来源的事实、结论和判断。
-
-### Integration Reviewer
-
-负责：
-
-- 检查跨模块影响；
-- 审查实现与验证证据是否匹配；
-- 确认高风险修改是否满足独立验收要求；
-- 识别接口、协议、时序、CDC、资源和集成风险；
-- 汇总遗留风险和发布建议。
-
-它不重复实现工作，也不能仅复述实现者的自测结论。
+- 扫描；
+- 解析；
+- 编译；
+- 仿真；
+- 比较；
+- 数据提取；
+- Git 状态采集；
+- 引用和一致性校验。
 
 ---
 
-## 7. Skill 模型
+# 5. 执行模式
 
-## 7.1 Skill 的准入条件
+系统支持三种执行模式。
 
-一个能力只有同时满足以下大部分条件，才适合实现为 Skill：
+## 5.1 DIRECT
 
-- 会被多个 Subagent 复用；
-- 方法相对稳定；
-- 不依赖一次性任务状态；
-- 不拥有端到端工程目标；
-- 不需要长期自主判断；
-- 能明确描述输入、方法和输出；
-- 更换 Agent 平台后仍有价值。
+用于：
 
-## 7.2 Skill 的候选类别
+- 解释；
+- 少量文件读取；
+- 低风险信息提取；
+- 已有安全工具执行；
+- 临时说明生成。
 
-第一阶段只定义类别，不冻结最终数量和名称。
+DIRECT 模式不得：
 
-### 工程探索类
+- 修改正式 RTL；
+- 修改正式固件；
+- 修改生产算法；
+- 改变外部接口；
+- 关闭高风险任务。
 
-- RTL 结构与层次分析方法；
-- 接口和参数提取方法；
-- 时钟复位域梳理方法；
-- 数据流和控制流分析方法。
+## 5.2 ROUTED
 
-### 调查诊断类
-
-- Bug 证据链构建方法；
-- 假设—实验—结论循环；
-- 板上与仿真差异分析方法；
-- 跨语言、跨实现一致性调查方法。
-
-### 验证类
-
-- testbench 架构规范；
-- 自检式验证方法；
-- scoreboard 设计原则；
-- 回归测试分层策略；
-- 协议验证检查表。
-
-### 实现类
-
-- RTL 设计检查清单；
-- 固件驱动设计规范；
-- 定点算法实现约束；
-- 错误处理和可观测性规范。
-
-### 文档类
-
-- 设计方案结构；
-- 调试报告规范；
-- 接口文档规范；
-- 工程交接摘要方法；
-- 项目状态压缩规则。
-
-## 7.3 禁止的 Skill 形态
-
-以下内容不应实现成 Skill：
-
-- “完成某模块的全部开发”；
-- “调查并修复某个 Bug”；
-- “建立完整验证环境并跑通”；
-- “维护整个项目状态”；
-- “自动管理所有其他 Skill”。
-
-这些属于 Agent 或 Subagent 的职责。
-
----
-
-## 8. 工具与脚本模型
-
-工具层承载确定性和可验证操作。
-
-候选工具包括：
-
-- 工程文件清单生成；
-- RTL 端口、参数和层次解析；
-- 编译和仿真命令封装；
-- 回归结果汇总；
-- 日志错误分类；
-- 二进制、图像和寄存器数据比较；
-- 时序报告路径提取；
-- Git 分支、commit 和修改状态采集；
-- 记录引用和索引一致性检查；
-- 状态投影数据采集。
-
-工具应满足：
-
-- 明确输入；
-- 明确输出；
-- 可重复执行；
-- 失败可识别；
-- 不隐式扩大修改范围；
-- 不自行作出高层工程判断。
-
----
-
-## 9. 权限与审批模型
-
-## 9.1 两类授权
-
-系统必须区分：
-
-### 执行授权
-
-允许 Agent：
-
-- 读取指定范围；
-- 调用指定工具；
-- 执行构建、仿真或分析；
-- 生成临时或正式产物。
-
-### 修改授权
-
-允许 Agent 修改指定范围内的正式工程文件。
-
-用户授权“调查问题”，不代表授权修改 RTL。
-
-## 9.2 默认模式：风险分级审批
-
-默认情况下：
-
-- 只读探索、分析和仿真执行可自动推进；
-- 生成独立验证资产可以在明确范围内执行；
-- 修改 RTL、正式固件、生产算法、约束和构建配置前必须获得授权；
-- 范围扩大或触及高风险对象时必须重新确认。
-
-## 9.3 可选模式：目标授权
-
-用户可以为一个范围明确的最终目标授予端到端执行权。
-
-在授权边界内，编排器可以自主调用多个 Subagent。
-
-即使在目标授权模式下，以下情况仍必须暂停：
-
-- 需求相互冲突；
-- 需要作出架构级取舍；
-- 修改范围超出授权；
-- 存在不可逆风险；
-- 需要访问敏感信息；
-- 验证结果与预期冲突；
-- 需要改变外部接口或冻结基线。
-
----
-
-## 10. 实现与验证隔离
-
-系统采用风险分级隔离，而非绝对隔离。
-
-### 基本原则
-
-- 实现型 Subagent 必须执行自测；
-- 自测不能自动等同于独立验收；
-- 中低风险修改可以在满足既定验证条件后闭环；
-- 高风险修改必须由独立验证或集成审查角色复核。
-
-### 典型高风险修改
-
-以下内容通常需要独立验收：
-
-- 外部接口变化；
-- AXI、AXIS、DDR、QSPI、RGMII 等协议行为变化；
-- 时钟域和复位结构变化；
-- CDC 路径变化；
-- 存储布局和数据格式变化；
-- 帧边界、包边界和长度计算变化；
-- 定点位宽和溢出行为变化；
-- 固件与 FPGA 寄存器契约变化；
-- 多模块公共基础设施变化；
-- 会影响既有回归基线的修改。
-
-具体阈值留给纵向样板验证，不在架构阶段完全冻结。
-
----
-
-## 11. 任务编排模型
-
-## 11.1 单任务路由
-
-适用于：
-
-- 生成设计方案；
-- 分析时序报告；
-- 搭建 testbench；
-- 修改一个 RTL 模块；
-- 编写一个 C 驱动；
-- 建立一个 Python 参考模型。
-
-顶层编排器选择一个主要 Subagent，必要时追加独立审查。
-
-## 11.2 多步骤编排
+由一个主要专业 Subagent 完成边界明确的任务。
 
 例如：
 
+- 分析时序报告；
+- 编写外设驱动；
+- 生成 testbench；
+- 建立参考模型。
+
+## 5.3 ORCHESTRATED
+
+用于：
+
+- 多角色协作；
+- 多步骤任务；
+- 权限升级；
+- 实现与验证隔离；
+- 调查、修复、回归和关闭闭环。
+
+## 5.4 执行模式升级原则
+
+执行模式只能保持或升级。
+
 ```text
-用户目标：定位并修复 QSPI 数据拼接错误
-
-System Investigator
-  → 建立问题和证据模型
-
-Verification Engineer
-  → 构建最小复现或增强观测
-
-RTL Engineer
-  → 在授权后实施修复
-
-Verification Engineer
-  → 独立回归验证
-
-Integration Reviewer
-  → 检查影响面和遗留风险
-
-Engineering Documenter
-  → 经确认后更新项目记录
+DIRECT → ROUTED → ORCHESTRATED
 ```
 
-顶层编排器调度的是专业结果，不是每一个低层命令。
+当出现新增风险因素、写权限需求或独立验证要求时，必须升级。
+
+不得因减少流程成本而静默降级。
 
 ---
 
-## 12. Subagent 交接契约
+# 6. 任务分类模型
 
-所有 Subagent 之间应通过结构化交接产物传递信息，而不是依赖完整对话历史。
+每个任务必须具有显式分类。
 
-## 12.1 最小公共信息
+## 6.1 Task Kind
 
-每份交接产物至少应表达：
+```text
+EXPLAIN
+EXPLORE
+INVESTIGATE
+DESIGN
+IMPLEMENT
+VERIFY
+REVIEW
+DOCUMENT
+```
 
-- 当前目标；
-- 工作范围；
-- 已授权操作；
-- 输入来源；
-- 已确认事实；
-- 未验证假设；
-- 已执行动作；
-- 生成或修改的产物；
-- 验证证据；
-- 当前结论；
-- 遗留风险；
-- 阻塞项；
-- 推荐的下一步；
-- 来源和版本信息。
+## 6.2 Domain
 
-第一阶段只冻结语义，不冻结最终字段名称和 Schema 格式。
+```text
+RTL
+VERIFICATION
+FIRMWARE
+ALGORITHM
+INTEGRATION
+TOOLING
+DOCUMENTATION
+```
 
-## 12.2 典型交接产物
+任务可以包含多个领域，但必须有一个主要责任域。
 
-### Context Package
+## 6.3 Risk Factor
 
-供下游快速理解必要工程上下文，不包含无关历史。
+```text
+EXTERNAL_INTERFACE_CHANGE
+PROTOCOL_BEHAVIOR_CHANGE
+CLOCK_RESET_CHANGE
+CDC_CHANGE
+STORAGE_LAYOUT_CHANGE
+NUMERIC_BEHAVIOR_CHANGE
+BUILD_SYSTEM_CHANGE
+HARDWARE_STATE_CHANGE
+SHARED_INFRASTRUCTURE_CHANGE
+BASELINE_CHANGE
+```
 
-### Investigation Package
+## 6.4 Required Capability
 
-包含现象、证据、假设、实验、排除项和根因状态。
+```text
+READ
+SAFE_EXECUTE
+STATEFUL_EXECUTE
+WRITE
+EXTERNAL_DEVICE_ACCESS
+DESTRUCTIVE_OPERATION
+```
 
-### Implementation Package
+## 6.5 分类责任
 
-包含设计目标、修改范围、实现说明、自测结果和影响分析。
+- 顶层编排器创建初始分类；
+- 专业 Subagent 可以发现并提出新增风险；
+- 专业 Subagent不得静默删除风险；
+- 用户可以否决执行，但不能通过自然语言覆盖技术风险事实；
+- 风险变化必须触发重新评估。
 
-### Verification Package
+## 6.6 风险变化不变量
 
-包含验证目标、环境、用例、结果、失败信息和覆盖缺口。
+任何新增风险因素或能力需求都必须重新评估：
 
-### Review Package
+- 执行模式；
+- 权限；
+- 验证角色；
+- 最低证据要求；
+- 关闭门禁。
 
-包含独立审查结论、风险等级、证据充分性和是否允许关闭。
-
-### Documentation Package
-
-包含需要长期沉淀的事实、来源、记录建议和去重信息。
-
-## 12.3 契约原则
-
-- 上游只传递下游完成任务所需内容；
-- 不默认传递完整聊天记录；
-- 结论与假设必须分离；
-- 文件路径不能替代结论说明；
-- 验证声明必须指向证据；
-- 不完整交接必须被显式拒绝或标记降级执行。
+已有授权不得自动覆盖新增风险。
 
 ---
 
-## 13. 仓库原生项目发展记录系统
+# 7. 任务运行时对象
 
-原 `ai-plat-bridge` 不再作为 Obsidian 工作台桥接层使用。
+任务运行时管理当前执行目标，不等同于长期项目记录。
 
-其可复用设计应被拆解为：
-
-- 记录类型和事实分类方法；
-- 写入授权规则；
-- 局部更新原则；
-- 追加式历史；
-- 去重与冲突检查；
-- 事实状态标记；
-- 写后验证；
-- 固定联动逻辑。
-
-新的记录系统直接位于工程仓库内，随 Git 版本演进。
-
-## 13.1 系统目标
-
-让新的维护者或 Agent 用最少读取成本回答：
-
-- 项目当前在做什么；
-- 已经完成什么；
-- 当前阻塞是什么；
-- 哪些结论已经验证；
-- 为什么采用当前设计；
-- 某个重要 Bug 如何定位和关闭；
-- 下一步最重要的工作是什么。
-
-## 13.2 记录类型
-
-架构阶段冻结以下最小记录类型：
-
-### Project Status
-
-项目当前状态的紧凑投影。
-
-### Task Record
-
-描述明确工作项的目标、状态、结果和验收情况。
-
-### Investigation Record
-
-独立记录 Bug 或异常的现象、证据、假设、实验、排除过程、根因和验证。
-
-### Decision Record
-
-记录重要设计选择、备选方案、取舍依据和影响。
-
-### Knowledge Record
-
-记录能够跨任务复用的工程知识和已验证方法。
-
-### Change/Event Log
-
-记录具有长期价值的项目发展事件，不复制普通 Git 提交历史。
-
-具体目录、文件名和模板留给样板阶段验证。
-
-## 13.3 Bug 调查独立建模
-
-Bug 调查不能被压缩成普通任务卡中的一段描述。
-
-任务与调查的关系是：
+最小对象：
 
 ```text
 Task
-  ├── Investigation A
-  ├── Investigation B
-  ├── Implementation
-  └── Verification
+Subtask
+Artifact
+Evidence
+Claim
+Approval
+Handoff
+Blocker
+Acceptance
+ClosureGate
+Baseline
 ```
-
-调查关闭只代表根因或调查结论得到确认，不自动代表修复完成。
-
-## 13.4 当前状态与历史记录双层模型
-
-记录系统同时保留：
-
-- 追加式工程历史；
-- 面向维护者的当前状态投影。
-
-当前状态不是新的权威事实源，而是对任务、调查、决策、验证证据和 Git 状态的压缩视图。
-
-投影采用混合生成：
-
-- 工具采集确定性数据；
-- Engineering Documenter 负责压缩、排序和表达；
-- 关键内容必须能够反向定位来源。
 
 ---
 
-## 14. 克制读写与上下文策略
+# 8. 三轴状态模型
 
-## 14.1 默认不读取项目记录
+v1.2 不再把执行完成、接受和关闭混在一个线性状态机中。
 
-普通知识问答、局部代码解释、简单命令生成和独立小任务，不读取记录系统。
-
-## 14.2 分层读取
-
-建议采用以下逻辑层次：
+## 8.1 Execution Status
 
 ```text
-L0：项目路由索引
-L1：当前状态摘要
-L2：指定任务、调查或决策
+PROPOSED
+READY
+RUNNING
+BLOCKED
+AWAITING_APPROVAL
+AWAITING_VALIDATION
+REWORK_REQUIRED
+FINISHED
+CANCELLED
+```
+
+### PROPOSED
+
+任务已识别，但范围、输入或分类未充分确定。
+
+### READY
+
+执行条件满足。
+
+### RUNNING
+
+专业角色正在执行。
+
+### BLOCKED
+
+存在阻塞，无法正常继续。
+
+### AWAITING_APPROVAL
+
+需要额外权限或用户决策。
+
+### AWAITING_VALIDATION
+
+实现产物已完成，等待独立验证或审查。
+
+### REWORK_REQUIRED
+
+产物未被接受，需返回上游。
+
+### FINISHED
+
+当前执行角色完成约定产物。
+
+### CANCELLED
+
+任务终止。
+
+## 8.2 Acceptance Status
+
+```text
+NOT_REVIEWED
+ACCEPTED
+REJECTED
+CONDITIONALLY_ACCEPTED
+```
+
+Acceptance 不是单一全局布尔值。
+
+每次接受必须记录：
+
+- `accepted_by`
+- `acceptance_scope`
+- `acceptance_basis`
+- `accepted_at`
+- `conditions`
+- `baseline`
+
+可能存在：
+
+```text
+handoff acceptance
+technical acceptance
+verification acceptance
+risk acceptance
+user acceptance
+```
+
+## 8.3 Closure Status
+
+```text
+OPEN
+CLOSABLE
+CLOSED
+```
+
+### OPEN
+
+至少一个必要关闭门禁未满足。
+
+### CLOSABLE
+
+必要门禁已满足，等待最终关闭动作或用户风险接受。
+
+### CLOSED
+
+顶层目标正式关闭。
+
+## 8.4 核心语义
+
+```text
+FINISHED ≠ ACCEPTED
+ACCEPTED ≠ CLOSED
+```
+
+一个 Subagent 完成任务，不等于下游接受。
+
+一个技术产物被接受，不等于顶层目标关闭。
+
+---
+
+# 9. Blocker 模型
+
+`BLOCKED` 只是执行状态，具体恢复逻辑由 Blocker 描述。
+
+每个 Blocker 至少包含：
+
+```text
+blocker_type
+blocker_owner
+description
+required_action
+resume_condition
+created_at
+```
+
+Blocker 类型：
+
+```text
+INPUT_FAILURE
+TOOL_FAILURE
+ENVIRONMENT_FAILURE
+PERMISSION_FAILURE
+IMPLEMENTATION_FAILURE
+VERIFICATION_FAILURE
+CONTRACT_FAILURE
+BASELINE_CONFLICT
+EVIDENCE_CONFLICT
+EXTERNAL_DEPENDENCY
+```
+
+---
+
+# 10. Runtime 与长期记录权威关系
+
+## 10.1 执行期间
+
+Runtime Task State 是当前执行状态的操作权威。
+
+所有状态变化先发生在运行时。
+
+## 10.2 持久化
+
+达到持久化条件时：
+
+```text
+Runtime transition
+→ Persistence Event
+→ Task Record update
+→ Project Status refresh
+```
+
+## 10.3 跨会话恢复
+
+```text
+Task Record
+→ Restore Runtime Task
+```
+
+Task Record 是跨会话恢复和历史审计权威。
+
+## 10.4 Project Status
+
+Project Status 仅为当前状态投影：
+
+- 不参与状态变更；
+- 不反向修改 Task Record；
+- 不反向修改 Runtime；
+- 只能由权威记录派生。
+
+## 10.5 禁止双写
+
+Runtime 和 Task Record 不得被两个角色独立修改为不同状态。
+
+Engineering Documenter 只能持久化已发生的运行时事件，不能自行创造状态迁移。
+
+---
+
+# 11. Subagent 角色边界
+
+## 11.1 System Investigator
+
+目标：
+
+> 缩小未知问题的不确定性。
+
+负责：
+
+- 问题陈述；
+- 事实和观察；
+- 证据索引；
+- 假设；
+- 区分性实验；
+- 排除方向；
+- 根因状态；
+- 下一步建议。
+
+默认不修改正式代码。
+
+## 11.2 RTL Engineer
+
+目标：
+
+> 交付授权范围内的 RTL 实现结果。
+
+负责：
+
+- RTL 设计；
+- RTL 修改；
+- 局部自测；
+- 修改说明；
+- 影响分析。
+
+不得声明高风险问题最终关闭。
+
+## 11.3 Verification Engineer
+
+目标：
+
+> 说明明确版本在明确测试条件下的验证结果。
+
+负责：
+
+- 验证目标；
+- 验证环境；
+- testbench；
+- 激励和检查器；
+- 回归；
+- 失败分析；
+- 覆盖缺口。
+
+不决定整体证据是否足以关闭问题。
+
+## 11.4 Integration Reviewer
+
+目标：
+
+> 判断现有实现和证据是否足以接受和关闭。
+
+负责：
+
+- 跨模块影响；
+- 风险覆盖；
+- 证据充分性；
+- 验证覆盖；
+- 遗留风险；
+- 接受、返工或阻塞建议。
+
+## 11.5 Firmware Engineer
+
+负责：
+
+- RISC-V/C 固件；
+- 外设驱动；
+- FPGA 寄存器访问；
+- 协议控制；
+- 固件构建与测试。
+
+## 11.6 Algorithm Engineer
+
+负责：
+
+- Python、MATLAB、C++ 模型；
+- 算法验证；
+- 定点化；
+- 误差分析；
+- 模型与 RTL 一致性。
+
+## 11.7 Engineering Documenter
+
+负责：
+
+- 压缩工作结果；
+- 维护仓库原生记录；
+- 检查事实类型；
+- 检查来源；
+- 去重；
+- 更新状态投影。
+
+可以拒绝：
+
+- 无来源事实；
+- 将推断写成事实；
+- 与权威记录冲突；
+- 低价值流水账；
+- 不满足持久化条件的临时状态。
+
+---
+
+# 12. Artifact 模型
+
+Artifact 是任务产生或修改的重要工程产物。
+
+## 12.1 应注册的 Artifact
+
+满足任一条件应注册：
+
+- 被 Handoff 引用；
+- 被 Evidence 引用；
+- 被 Closure Gate 依赖；
+- 需要跨会话恢复；
+- 需要长期跟踪有效性；
+- 修改了正式工程资产。
+
+## 12.2 不必注册的内容
+
+通常不注册：
+
+- 可重新生成的缓存；
+- 未被引用的中间文件；
+- 工具内部临时文件；
+- 无长期价值的普通日志；
+- 无关构建产物。
+
+## 12.3 Artifact 最小语义
+
+```text
+artifact_type
+location
+producer
+created_at
+baseline
+dependencies
+scope
+validity
+```
+
+---
+
+# 13. Evidence 模型
+
+Evidence 是支持或反驳某项 Claim 的信息。
+
+## 13.1 Evidence 基本语义
+
+```text
+evidence_type
+source
+artifact_ref
+baseline
+producer
+produced_at
+summary
+reproducibility_level
+relevance
+coverage
+validity
+```
+
+## 13.2 Reproducibility Level
+
+### E0：声明
+
+仅有 Agent 或人员陈述。
+
+### E1：观察
+
+有人工或工具观察，但复现信息有限。
+
+### E2：可定位
+
+有明确日志、波形、数据或结果引用，并绑定版本。
+
+### E3：可复现
+
+有明确命令、环境、输入、版本和结果，可重复执行。
+
+## 13.3 重要限制
+
+E3 只代表可复现程度高，不自动代表：
+
+- 覆盖充分；
+- 结论正确；
+- 系统级关闭充分。
+
+证据充分性由：
+
+- relevance；
+- coverage；
+- 独立性；
+- 风险策略；
+- Integration Reviewer；
+
+共同判断。
+
+---
+
+# 14. Claim 模型
+
+Claim 是工程主体对某件事提出的显式主张。
+
+没有 Claim，Evidence 无法明确说明“支持什么”。
+
+## 14.1 Claim 最小语义
+
+```text
+statement
+claim_type
+producer
+scope
+baseline
+supported_by
+contradicted_by
+confidence
+status
+```
+
+## 14.2 Claim Type
+
+```text
+FACT
+OBSERVATION
+INFERENCE
+DECISION
+HYPOTHESIS
+```
+
+## 14.3 Claim Status
+
+```text
+PROPOSED
+SUPPORTED
+CONTRADICTED
+SUPERSEDED
+INVALIDATED
+```
+
+## 14.4 核心链路
+
+```text
+Artifact
+→ Evidence
+→ Claim
+→ Acceptance
+→ Closure Gate
+```
+
+## 14.5 反证要求
+
+任何 Claim 都可以同时关联：
+
+- 支持证据；
+- 反证；
+- 未解决冲突。
+
+存在有效反证时，不得静默将 Claim 视为已确认。
+
+---
+
+# 15. Baseline 与失效传播
+
+验证和 Claim 必须绑定明确 Baseline。
+
+Baseline 可以是：
+
+- commit；
+- 工作区快照；
+- Artifact 版本；
+- 配置集合；
+- 工具版本；
+- 关键输入数据。
+
+必须能够回答：
+
+> 这项 Claim 和 Evidence 对应的是哪个实现版本、哪些配置和哪些输入。
+
+以下变化可能触发失效：
+
+- 上游 Artifact 改变；
+- 配置改变；
+- 测试输入改变；
+- 工具链相关改变；
+- 依赖基线改变；
+- 版本无法确认。
+
+失效传播：
+
+```text
+Artifact changed
+→ dependent Evidence invalidated or degraded
+→ dependent Claim re-evaluated
+→ Acceptance re-evaluated
+→ Closure Gate re-evaluated
+```
+
+不得静默保留旧结论。
+
+---
+
+# 16. 权限模型
+
+权限级别：
+
+```text
+READ
+SAFE_EXECUTE
+STATEFUL_EXECUTE
+WRITE
+EXTERNAL_DEVICE_ACCESS
+DESTRUCTIVE_OPERATION
+```
+
+## 16.1 默认风险分级审批
+
+- READ：通常自动允许；
+- SAFE_EXECUTE：明确安全时自动允许；
+- STATEFUL_EXECUTE：需声明影响范围；
+- WRITE：修改正式工程资产前必须授权；
+- EXTERNAL_DEVICE_ACCESS：单独授权；
+- DESTRUCTIVE_OPERATION：逐次确认。
+
+## 16.2 目标授权
+
+目标授权必须明确：
+
+- 目标；
+- 读取范围；
+- 修改范围；
+- 执行权限；
+- 设备权限；
+- 自动记录权限；
+- 保留的强制门禁。
+
+目标授权不覆盖后续新增风险。
+
+---
+
+# 17. 风险策略矩阵
+
+架构冻结矩阵结构，不要求第一阶段覆盖全部场景。
+
+每项风险必须映射到：
+
+```text
+Risk Factor
+→ Required Permission
+→ Required Executor
+→ Required Validator
+→ Minimum Evidence
+→ Closure Gate
+```
+
+初始核心矩阵：
+
+| Risk Factor                  | Permission               | Validator                                    | Minimum evidence | Mandatory gate            |
+| ---------------------------- | ------------------------ | -------------------------------------------- | ---------------- | ------------------------- |
+| EXTERNAL_INTERFACE_CHANGE    | WRITE                    | Verification Engineer + Integration Reviewer | E3 且覆盖兼容性  | interface compatibility   |
+| PROTOCOL_BEHAVIOR_CHANGE     | WRITE                    | Verification Engineer                        | E3               | protocol regression       |
+| CLOCK_RESET_CHANGE           | WRITE                    | Verification Engineer + Integration Reviewer | E3               | clock/reset review        |
+| CDC_CHANGE                   | WRITE                    | 独立验证与集成审查                           | E3               | CDC validation            |
+| STORAGE_LAYOUT_CHANGE        | WRITE                    | Verification Engineer                        | E3               | data layout compatibility |
+| NUMERIC_BEHAVIOR_CHANGE      | WRITE                    | Algorithm Engineer 或 Verification Engineer  | E2/E3            | numeric equivalence       |
+| BUILD_SYSTEM_CHANGE          | WRITE / STATEFUL_EXECUTE | 视范围决定                                   | E2/E3            | clean build               |
+| HARDWARE_STATE_CHANGE        | EXTERNAL_DEVICE_ACCESS   | 用户或板级验证角色                           | E2               | hardware validation       |
+| SHARED_INFRASTRUCTURE_CHANGE | WRITE                    | Integration Reviewer                         | E3               | dependent regression      |
+| BASELINE_CHANGE              | 重新绑定                 | 原验证角色                                   | 重新评估         | evidence validity         |
+
+纵向样板只需落实涉及的条目。
+
+---
+
+# 18. Handoff 契约
+
+Subagent 不依赖完整聊天记录交接。
+
+最小公共内容：
+
+- 任务目标；
+- 分类；
+- 工作范围；
+- 授权；
+- Baseline；
+- 输入来源；
+- Claim；
+- Evidence；
+- Artifact；
+- 已执行动作；
+- 当前结论；
+- 风险；
+- Blocker；
+- 下一步。
+
+## 18.1 Context Package
+
+分为：
+
+```text
+MUST_HAVE
+USEFUL
+EXCLUDED
+```
+
+必须记录：
+
+- 来源；
+- 相关性；
+- 新鲜度；
+- 失效条件；
+- 大小预算。
+
+Context Package 主要是引用和必要摘要，不复制完整历史。
+
+## 18.2 Handoff Acceptance
+
+下游接收 Handoff 时，必须记录：
+
+- 接受者；
+- 接受范围；
+- 接受依据；
+- 是否附带条件；
+- 是否拒绝；
+- 缺失内容。
+
+接收一个包，不代表接受整个技术结论。
+
+---
+
+# 19. 失败恢复规则
+
+| Failure Type           | 默认责任归属          | 默认恢复路径       |
+| ---------------------- | --------------------- | ------------------ |
+| INPUT_FAILURE          | 上游输入提供者        | 补充输入           |
+| TOOL_FAILURE           | Tooling / Environment | 修复工具或更换工具 |
+| ENVIRONMENT_FAILURE    | 环境维护者            | 恢复环境           |
+| PERMISSION_FAILURE     | 顶层编排器 / 用户     | 请求授权           |
+| IMPLEMENTATION_FAILURE | 实现角色              | 重新实现           |
+| VERIFICATION_FAILURE   | 实现或调查角色        | 返工或重新调查     |
+| CONTRACT_FAILURE       | 上游 Artifact 生产者  | 修正 Handoff       |
+| BASELINE_CONFLICT      | 顶层编排器            | 重新绑定 Baseline  |
+| EVIDENCE_CONFLICT      | System Investigator   | 设计区分实验       |
+| EXTERNAL_DEPENDENCY    | 外部责任方            | 等待、替代或终止   |
+
+工具失败不得被归类为设计失败。
+
+验证失败不得被实现者自测覆盖。
+
+证据冲突不得被静默忽略。
+
+---
+
+# 20. 关闭门禁模型
+
+不通过增加大量“部分关闭状态”表达复杂情况。
+
+采用 Closure Gate 集合。
+
+典型 Gate：
+
+```text
+root_cause_gate
+implementation_gate
+simulation_gate
+hardware_gate
+protocol_gate
+cdc_gate
+integration_gate
+risk_acceptance_gate
+record_gate
+```
+
+每个 Gate 包含：
+
+```text
+required
+status
+basis
+evidence
+accepted_by
+conditions
+```
+
+Gate Status：
+
+```text
+NOT_REQUIRED
+UNSATISFIED
+SATISFIED
+WAIVED
+```
+
+`WAIVED` 必须有明确风险接受主体和理由。
+
+顶层 Closure：
+
+```text
+OPEN
+→ 所有必要 Gate SATISFIED 或合法 WAIVED
+→ CLOSABLE
+→ 执行关闭
+→ CLOSED
+```
+
+可以显示：
+
+```text
+5 / 7 required gates satisfied
+```
+
+但不得把进度比例误认为任务已关闭。
+
+---
+
+# 21. 并发与共享工作区
+
+冻结以下语义：
+
+1. 两个写角色不能同时修改同一受控范围；
+2. 多个只读角色可以并行；
+3. 验证绑定明确实现版本；
+4. 上游变化使旧验证失效或降级；
+5. 合并冲突不得静默处理；
+6. 用户未提交修改必须保护；
+7. 并行产物合并前必须检查范围和 Baseline。
+
+具体使用 worktree、分支还是独立目录，留给平台适配阶段。
+
+---
+
+# 22. 仓库原生项目发展记录
+
+原 `ai-plat-bridge` 拆解重构为仓库原生记录能力。
+
+记录类型：
+
+- Project Status
+- Task Record
+- Investigation Record
+- Decision Record
+- Verification Record
+- Knowledge Record
+- Change/Event Log
+
+## 22.1 Canonical Source Map
+
+| 信息           | 权威来源             |
+| -------------- | -------------------- |
+| 当前代码内容   | Git 工作树或 commit  |
+| 当前执行状态   | Runtime Task State   |
+| 跨会话任务状态 | Task Record          |
+| Bug 根因状态   | Investigation Record |
+| 设计选择       | Decision Record      |
+| 当前验证结果   | Verification Package |
+| 长期验证摘要   | Verification Record  |
+| 当前项目摘要   | Project Status       |
+| 可复用知识     | Knowledge Record     |
+
+## 22.2 Project Status
+
+Project Status：
+
+- 只是投影；
+- 不参与状态变更；
+- 不创造事实；
+- 不覆盖底层记录；
+- 必须反向引用权威来源。
+
+## 22.3 最小关系语义
+
+```text
+DERIVED_FROM
+SUPERSEDES
+INVALIDATES
+VERIFIED_BY
+RELATED_TO
+```
+
+---
+
+# 23. 克制读写
+
+## 23.1 默认不读取
+
+普通解释、小范围代码阅读、简单工具执行不读取项目历史。
+
+## 23.2 分层读取
+
+```text
+L0：路由索引
+L1：当前状态
+L2：指定任务、调查、决策或验证
 L3：原始证据和完整历史
 ```
 
-正常任务只读取完成当前目标所需的最低层级。
+必须从最低足够层级开始。
 
-禁止无理由扫描全部任务、日志、调查和知识记录。
-
-## 14.3 写入触发机制
+## 23.3 默认写入
 
 默认模式：
 
-- 编排器识别到高价值工程事件；
-- 向用户建议记录；
-- 用户确认后，由 Engineering Documenter 写入。
+```text
+发现高价值事件
+→ 建议记录
+→ 用户确认
+→ Documenter 写入
+```
 
 目标授权模式：
 
-- 达到记录阈值的事件可以自动写入；
-- 仍必须经过压缩、去重、来源检查和写后验证。
+```text
+达到记录门槛
+→ 自动压缩、去重、来源检查
+→ 写入
+→ 写后验证
+```
 
-## 14.4 不应记录的内容
+## 23.4 不记录
 
 通常不记录：
 
-- Agent 阅读了哪些文件；
-- 普通命令执行过程；
-- 可直接由 Git diff 恢复的微小改动；
-- 没有形成价值的临时猜测；
-- 重复结论；
+- 文件阅读流水；
+- 普通命令过程；
+- 可由 Git diff 恢复的微小修改；
+- 无长期价值的猜测；
+- 重复事实；
 - 大段代码；
-- 完整仿真日志；
-- 原始波形和二进制数据；
+- 完整日志；
+- 原始波形；
 - 普通知识问答。
 
-记录系统只保存长期有价值的语义和证据引用。
+---
 
-## 14.5 写入角色隔离
+# 24. 平台中立最小接口
 
-领域 Subagent 不直接随意修改项目记录。
+## 24.1 Task Interface
 
-标准路径为：
+- 创建；
+- 分类；
+- 更新执行状态；
+- 设置接受状态；
+- 设置关闭状态；
+- 建立依赖；
+- 标记 Blocker；
+- 恢复任务。
+
+## 24.2 Agent Invocation Interface
+
+- 指定角色；
+- 指定范围；
+- 指定权限；
+- 指定 Baseline；
+- 提交 Handoff；
+- 接收 Artifact、Evidence、Claim 和失败结果。
+
+## 24.3 Artifact Interface
+
+- 注册；
+- 查询；
+- 建立依赖；
+- 标记版本；
+- 标记失效。
+
+## 24.4 Evidence Interface
+
+- 注册；
+- 绑定 Baseline；
+- 设置 Reproducibility Level；
+- 设置 relevance 和 coverage；
+- 标记有效或失效。
+
+## 24.5 Claim Interface
+
+- 创建 Claim；
+- 关联支持证据；
+- 关联反证；
+- 更新 Claim 状态；
+- 查询某 Gate 依赖的 Claim。
+
+## 24.6 Approval Interface
+
+- 请求权限；
+- 描述风险；
+- 记录授权范围；
+- 检查越权；
+- 触发重新审批。
+
+## 24.7 Closure Interface
+
+- 创建 Gate；
+- 更新 Gate；
+- 记录接受主体；
+- 计算 CLOSABLE；
+- 执行关闭。
+
+## 24.8 Record Interface
+
+- 按需读取；
+- 持久化 Runtime Event；
+- 更新权威记录；
+- 更新 Project Status；
+- 写后验证。
+
+---
+
+# 25. 纵向样板
+
+样板继续采用：
+
+> QSPI 数据拼接异常的调查、修复和验证闭环。
+
+建议流程：
 
 ```text
-领域 Subagent
-  → 输出结构化工作结果
-
-顶层编排器
-  → 判断是否达到记录阈值
-
-Engineering Documenter
-  → 压缩、去重、引用并写入
-
-记录校验工具
-  → 写后验证
-```
-
----
-
-## 15. Git 集成原则
-
-Git 是代码和文件演进的事实基础，但不能替代项目发展记录。
-
-Git 负责说明：
-
-- 哪些文件发生了变化；
-- 变化属于哪个分支或 commit；
-- 当前工作区状态；
-- 版本和标签关系。
-
-项目记录负责说明：
-
-- 为什么变化；
-- 解决了什么问题；
-- 使用了什么证据；
-- 哪些方案被否决；
-- 验证是否充分；
-- 还存在哪些风险。
-
-记录可以引用：
-
-- branch；
-- commit；
-- tag；
-- affected files；
-- verification artifacts；
-- related tasks；
-- related investigations；
-- superseded decisions。
-
-但不复制完整 diff 和大段日志。
-
----
-
-## 16. 平台中立层与 OMP/pi 适配层
-
-## 16.1 第一阶段平台中立层
-
-平台中立层定义：
-
-- 角色职责；
-- 任务编排语义；
-- 权限模型；
-- 交接产物语义；
-- 记录模型；
-- Skill 准入标准；
-- 工具能力边界；
-- 验证和审批原则。
-
-这些内容不依赖 OMP/pi、Codex、Claude Code 或其他具体实现。
-
-## 16.2 后续 OMP/pi 适配层
-
-OMP/pi 深度开发阶段再实现：
-
-- 顶层编排 Agent；
-- Subagent 配置和调用机制；
-- 独立上下文；
-- 工具白名单；
-- 权限升级；
-- 串行和并行任务；
-- 结构化交接；
-- 任务状态持久化；
-- 记录事件触发；
-- 跨会话恢复；
-- 失败重试与恢复；
-- 用户审批交互。
-
-平台适配层可以改变配置和调用方式，但不能改变平台中立层的职责语义。
-
----
-
-## 17. 建议的纵向样板
-
-第一项纵向样板建议选择：
-
-> 跨 RTL、仿真和项目记录的 Bug 调查与修复闭环。
-
-原因是它能够同时验证：
-
-- 顶层编排；
-- 跨领域 Subagent；
-- 领域 Subagent；
-- Skill 与 Agent 的边界；
-- 只读与写代码权限；
-- 风险分级审批；
-- 实现与验证隔离；
-- 结构化交接；
-- Investigation Record；
-- 克制读取；
-- 记录建议与目标授权写入。
-
-样板不应一开始追求通用化，而应使用一个真实、边界清晰的 FPGA 问题验证整条链路。
-
-建议验证流程：
-
-```text
-问题接收
+用户目标
+→ Task Classification
+→ 执行模式判定
+→ 建立 Runtime Task
+→ 绑定 Baseline
 → 最小上下文读取
-→ System Investigator 建立调查包
-→ Verification Engineer 建立复现或观测
-→ 用户授权代码修改
-→ RTL Engineer 实施修复
+→ System Investigator
+→ Investigation Package
+→ Claim 与 Evidence 注册
+→ Verification Engineer 构建复现
+→ 处理 Evidence Conflict
+→ 请求 WRITE
+→ RTL Engineer 修复
+→ Artifact 与 Claim 注册
 → Verification Engineer 独立验证
-→ Integration Reviewer 判断是否可关闭
-→ Engineering Documenter 提议或执行记录更新
+→ Evidence 绑定新 Baseline
+→ Integration Reviewer 审查
+→ Closure Gate 计算
+→ 用户风险接受（如需要）
+→ CLOSED
+→ Documenter 持久化记录
 ```
 
-样板完成后，再根据真实摩擦调整：
+样板必须验证：
 
-- 角色粒度；
-- 交接字段；
-- 风险阈值；
-- 记录触发；
-- 上下文层级；
-- 工具需求；
-- OMP/pi 所需运行时能力。
-
----
-
-## 18. 第一阶段架构不变量
-
-以下规则应作为正式冻结项：
-
-1. `develoip-copilot` 是能力套件，不是单一巨型 Skill。
-2. 顶层编排 Agent 不承担专业实现工作。
-3. Subagent 对完整专业结果负责。
-4. Skill 只承载稳定、可复用的方法和规范。
-5. 确定性操作优先实现为工具或脚本。
-6. 每个执行角色拥有固定职责和受限权限。
-7. 执行授权与修改授权必须分离。
-8. 默认采用风险分级审批，目标授权为可选模式。
-9. 高风险修改必须经过独立验证或集成审查。
-10. 工程结论必须关联证据。
-11. Subagent 通过结构化产物交接，不依赖完整对话历史。
-12. 项目发展记录位于工程仓库内，并跟随 Git。
-13. Bug 调查是独立记录类型。
-14. 项目记录默认不读取、默认不写入。
-15. 记录写入由高价值工程事件触发。
-16. 默认建议记录并等待确认，目标授权下允许自动记录。
-17. 领域 Subagent 不直接维护长期记录。
-18. 平台适配层不得改变平台中立契约的语义。
-19. 第一阶段只支持任务级编排，不承诺完整生命周期自治。
-20. 未经真实样板验证的实现细节不得伪装成冻结契约。
+- 三轴状态；
+- Runtime 与 Task Record 同步；
+- 风险变化重评估；
+- Artifact 注册门槛；
+- Evidence Reproducibility；
+- Claim 链路；
+- Handoff Acceptance；
+- Blocker 恢复；
+- Evidence 失效传播；
+- Closure Gate；
+- 克制读写。
 
 ---
 
-## 19. 明确保留的实现期决策
+# 26. 架构不变量
 
-以下内容不在当前阶段冻结：
-
-- 最终项目名称；
-- Subagent 的最终数量和命名；
-- Skill 的最终目录和数量；
-- 仓库记录目录结构；
-- 文件命名；
-- YAML、JSON 或 Markdown Schema；
-- 状态字段和枚举；
-- 精确风险等级；
-- 自动记录阈值；
-- 上下文 Token 预算数值；
-- Project Status 的具体章节；
-- 状态投影的生成工具；
-- OMP/pi Extension 结构；
-- 不同 Agent 平台的配置格式；
-- 并行执行和工作树策略；
-- CI、PR 和发布集成。
-
-这些问题应在纵向样板或后续平台适配阶段，根据真实运行反馈确定。
-
----
-
-## 20. 第一阶段完成判据
-
-全局架构可以被视为有效，至少需要满足：
-
-- 典型 FPGA、固件、算法和验证任务都能映射到明确角色；
-- 不需要把完整工程职责塞进 Skill；
-- 每个文件修改动作都能找到唯一责任角色和授权来源；
-- 多步骤任务可以通过交接产物串联；
-- 高风险实现能够触发独立验证；
-- 新 Agent 接手时不需要读取完整历史；
-- 项目状态能够通过少量记录快速恢复；
-- 记录系统不会在每轮交互中消耗大量上下文；
-- 纵向样板无需改变核心分层；
-- 后续接入 OMP/pi 时只需实现适配器和运行机制，而不需要重做能力边界。
-
----
-
-## 21. 推荐推进顺序
-
-### Milestone 1：架构冻结
-
-正式评审并冻结：
-
-- 系统分层；
-- 角色模型；
-- Skill 准入原则；
-- 权限和审批模型；
-- 实现与验证隔离；
-- 交接契约语义；
-- 项目记录模型；
-- 平台适配边界；
-- 架构不变量。
-
-### Milestone 2：纵向样板设计
-
-选择一个真实 FPGA Bug，设计完整调用链，但仍不批量生成所有 Skill 和 Subagent。
-
-### Milestone 3：样板最小实现
-
-只实现样板所需的最少：
-
-- 编排逻辑；
-- 相关 Subagent；
-- 少量复用 Skill；
-- 必要工具；
-- 最小交接 Schema；
-- Investigation Record；
-- 验证和记录闭环。
-
-### Milestone 4：架构回标
-
-根据样板暴露的问题调整推荐默认值，但原则上不改变架构不变量。
-
-### Milestone 5：OMP/pi 深度适配
-
-将已经验证的模型实现为 OMP/pi 的 Agent、Subagent、Extension、工具和持久化能力。
+1. `develoip-copilot` 是能力套件，不是巨型 Skill。
+2. 顶层编排器不承担复杂专业实现。
+3. DIRECT 模式不得修改正式设计代码。
+4. Subagent 对完整专业结果负责。
+5. Skill 只承载稳定方法。
+6. Tool 负责确定性执行。
+7. 每个任务必须显式分类。
+8. 每个任务必须具有 Execution Status。
+9. Acceptance 与 Closure 必须独立建模。
+10. FINISHED 不等于 ACCEPTED。
+11. ACCEPTED 不等于 CLOSED。
+12. 风险变化必须触发重新评估。
+13. 执行模式在风险增加时只能升级。
+14. 任何角色不得自行扩大范围或权限。
+15. READ、EXECUTE、WRITE、设备访问和破坏性操作必须区分。
+16. 高风险修改必须独立验证或审查。
+17. 实现者自测不能覆盖独立验证失败。
+18. Artifact、Evidence 和 Claim 必须显式区分。
+19. Claim 必须关联支持证据或明确标记无证据。
+20. 有效反证不得被静默忽略。
+21. Evidence 必须绑定 Baseline。
+22. E3 不自动等于证据充分。
+23. 上游变化必须触发依赖证据和 Claim 重评估。
+24. Subagent 通过结构化 Handoff 交接。
+25. Handoff 接收不等于技术接受。
+26. 任何接受必须记录主体、范围和依据。
+27. 工具失败与工程失败必须区分。
+28. BLOCKED 必须包含恢复条件。
+29. 验证失败阻止相关 Closure Gate。
+30. Closure 必须由 Gate 决定。
+31. Runtime 是执行期状态操作权威。
+32. Task Record 是跨会话持久化权威。
+33. Project Status 不得成为事实权威。
+34. 两个写角色不得同时修改同一受控范围。
+35. 验证必须针对明确实现版本。
+36. 合并冲突不得静默处理。
+37. 项目记录默认不读、默认不写。
+38. Bug 调查必须独立建模。
+39. 领域 Subagent 不直接随意维护长期记录。
+40. 平台适配不得改变平台中立契约语义。
+41. 第一阶段只承诺任务级编排。
+42. 未经样板验证的实现细节不得伪装成冻结契约。
 
 ---
 
-## 22. 最终架构结论
+# 27. Milestone 1.5：统一执行契约
 
-`develoip-copilot` 的核心不是积累大量 Skill，而是建立一套职责清晰的工程协作体系：
+下一阶段只产出一份统一的：
 
 ```text
-顶层 Agent 负责编排
-专业 Subagent 负责结果
-Skill 负责方法
-工具负责确定性执行
-契约负责交接
-证据负责可信
-记录系统负责恢复
-OMP/pi 负责后续运行时实现
+execution-contract.md
 ```
 
-这套架构应始终服务于一个目标：
+内部包含：
 
-> 在不牺牲工程边界、验证可信度和维护可追溯性的前提下，让 AI 真正承担 FPGA 与嵌入式开发中的重复劳动。
+1. Object Model
+2. Event Model
+3. Three-axis State Model
+4. Risk Policy Matrix
+5. Artifact–Evidence–Claim Model
+6. Approval Model
+7. Failure Recovery Matrix
+8. Closure Gate Model
+9. Runtime Persistence Model
+10. Core Invariants
+
+不应拆成彼此独立、重复定义概念的六套规范。
+
+可以按章节分文件维护，但必须有一个唯一对外契约入口。
+
+---
+
+# 28. 最终判定
+
+v1.2 已从：
+
+> 多 Agent 职责蓝图
+
+升级为：
+
+> 具备显式任务分类、三轴状态、权限决策、证据主张链、失败恢复和关闭门禁的工程 Agent 控制架构。
+
+核心链路为：
+
+```text
+Task Classification
+→ Runtime Control
+→ Agent Execution
+→ Artifact
+→ Evidence
+→ Claim
+→ Acceptance
+→ Closure Gate
+→ Persistent Record
+```
+
+下一步不应继续增加角色或抽象层。
+
+应进入 Milestone 1.5，将本蓝图转化为一份最小、统一、可测试的 `execution-contract.md`。
