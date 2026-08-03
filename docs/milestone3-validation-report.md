@@ -84,6 +84,25 @@ pytest 73 项 = M2 全量回归（41 项原契约/适配器测试，保持通过
 | 11 | Bridge 崩溃后可恢复 | **PASS** | smoke：stop→restart→状态经 replay 恢复；pytest：进程重启 |
 | 12 | Milestone 2 Adapter tests 保持通过 | **PASS** | pytest 74 passed（含 M2 41 项） |
 
+## 4.1 Gate A 正式判定（2026-08-03）
+
+| # | Gate A 项 | 判定 | 证据 |
+| --- | --- | --- | --- |
+| 1 | OMP 可发现项目 Skill | **PASS** | `.omp/skills/develoip-copilot/SKILL.md`；交互会话 doctor skill 检查 PASS |
+| 2 | OMP 可加载 Extension | **PASS** | 真实会话工厂执行；`session_start` 自动拉起 Bridge（12 次 ready） |
+| 3 | `/dc doctor` 通过 | **PASS** | 交互会话 RESULT: PASS（11 项检查，约 2s） |
+| 4 | OMP 可启动 Python Bridge | **PASS** | 真实会话 + pytest subprocess 全套 |
+| 5 | `dc_query` 可读取 Runtime | **PASS** | 模型真实调用 dc_query 并渲染状态 |
+| 6 | `dc_dispatch` 可创建 Task | **PASS** | `/dc m3-start` 建 task-m3；模型 CLASSIFY+BIND_BASELINE 成功 |
+| 7 | `/dc resume` 可恢复 Event Store | **PASS（Bridge 层）** | pytest：重启 replay 恢复 + restore op + 陈旧快照降级；`/dc resume` 交互演示并入 Batch 2 M3-O11 |
+| 8 | OMP Session 不保存第二套状态 | **PASS（设计审查）** | Extension 仅持 Bridge 连接；无 Session 历史导入路径 |
+| 9 | Derived Result 写入被拒绝 | **PASS** | SET_GATE_STATUS → DERIVED_RESULT_WRITE_FORBIDDEN（pytest + smoke） |
+| 10 | 未授权 edit/write/bash 被拦截 | **PASS** | 真实会话 M3-O03：模型 write 被拦截、文件未创建；决策矩阵 pytest 全覆盖 |
+| 11 | Bridge 崩溃后可恢复 | **PASS** | smoke：stop→restart→replay 恢复；pytest：进程重启 |
+| 12 | Milestone 2 Adapter tests 保持通过 | **PASS** | pytest 74 passed（含 M2 41 项） |
+
+**结论：Gate A = PASS（12/12）**。判定依据：`docs/milestone3-validation-report.md` §2 自动化证据 + §3.1 真实交互会话证据；2026-08-03 复核，全量回归 74 passed、smoke PASS、`git diff --check` PASS。Batch 1 已提交为 `a70ca90`（完成Milestone3-Batch 1）。
+
 ## 5. 剩余限制与待用户确认项
 
 1. **Gate A 已在真实交互会话闭环**（§3.1：doctor PASS、m3-start、dc_query/dc_dispatch 模型调用、
@@ -94,3 +113,47 @@ pytest 73 项 = M2 全量回归（41 项原契约/适配器测试，保持通过
    （gitignored，不计入提交），其中 `task-m3` 为交互验证期间创建的真实 M3 顶层 Task
    （PROPOSED→READY，scope=probe-dir，baseline=baseline-a）；正式试点从 Batch 2 重新对齐。
 3. 本报告未声称：真实硬件验证、生产工程修改、板级问题关闭。
+
+---
+
+# Batch 2 — 真实 Workspace 与 Baseline（2026-08-03）
+
+## 自动化验证
+
+```text
+python -m pytest -q   → 99 passed（M2 41 + Batch 1 33 + workspace 25）
+python -m compileall -q runtime roles tools adapters fixtures tests workspace → PASS
+bun tests/omp/smoke.ts → SMOKE PASS
+git diff --check       → PASS
+```
+
+workspace 新增 25 项：scope 规则、adapter 快照/五态分类矩阵、baseline 确定性、
+isolation（worktree/clone 原工作区零触碰 + patch 生成 + 清理）、bridge 集成
+（workspace_status/capture_baseline/guard 分类拦截）。
+
+## 真实试点验证（Bridge 直连，只读）
+
+| 验证项 | 结果 |
+| --- | --- |
+| workspace_status | pilot_connected=true，classification=**CLEAN**，branch=feature_axi，commit=fb2ed49，0 脏文件 |
+| 相关文件哈希 | MEM.TXT/qspi_driver_tb.v 等与手工捕获一致 |
+| capture_baseline | 指纹 `fb2ed49a…:b097d3bd92e5875e`，4 文件哈希 + 工具链 + 输入引用，CLEAN |
+| 基线验证（隔离镜像） | qspi_driver_tb **TEST PASSED，errors=0**（ReadStatus/Enter4Byte/ReadID/SingleRead/QuadRead/Erase/Program） |
+| Guard（真实试点） | 治理范围内 write → **BLOCKED APPROVAL_REQUIRED**；范围外 write → ALLOWED；治理 cwd 内 bash 写意图 → BLOCKED |
+| 原工作区 | 全程未被修改（基线验证在 `%TEMP%/dc-pilot-sim` 镜像中运行） |
+
+## Gate B 判定
+
+| # | Gate B 项 | 判定 | 证据 |
+| --- | --- | --- | --- |
+| 1 | 原工作区不被修改 | **PASS** | isolation 测试（worktree/clone 后原树不变）；仿真镜像运行 |
+| 2 | 未提交修改不丢失 | **PASS** | adapter 只读快照 + 分类（DIRTY_RELATED/UNRELATED 测试） |
+| 3 | Baseline 可重复捕获 | **PASS** | 确定性测试 + 真实捕获 |
+| 4 | Scope 外修改被拒绝 | **PASS**（approval-scope 匹配 Batch 5 细化） | Guard 治理/分类拦截；`WORKSPACE_CONFLICTING` 测试 |
+| 5 | protected path 不可写 | **PASS** | Guard PROTECTED_PATH（config.protected_paths 已接线） |
+| 6 | 用户相关脏修改被识别 | **PASS** | 分类矩阵测试（五态全覆盖） |
+| 7 | 工具执行副作用可审计 | **PASS** | baseline 记录工具链+输入引用；diff_before_after；镜像日志 |
+| 8 | 不执行真实设备操作 | **PASS** | 全程无设备访问；仿真在隔离镜像 |
+| 9 | Milestone 2 tests 保持通过 | **PASS** | pytest 99 passed（含 M2 41） |
+
+**Gate B = PASS（9/9）**。待 Batch 5 前定义 `candidate_write_scope` 并细化 approval-scope 精确匹配。

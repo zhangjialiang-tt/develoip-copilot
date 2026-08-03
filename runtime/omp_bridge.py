@@ -99,7 +99,7 @@ class BridgeServer:
             "protocol_version": PROTOCOL_VERSION,
             "schema_version": SCHEMA_VERSION,
             "service": "develoip-copilot-bridge",
-            "ops": ["hello", "health", "status", "dispatch", "query", "restore", "save_snapshot", "invoke_role_result", "submit_candidates", "guard_check", "workspace_status", "shutdown"],
+            "ops": ["hello", "health", "status", "dispatch", "query", "restore", "save_snapshot", "invoke_role_result", "submit_candidates", "guard_check", "workspace_status", "capture_baseline", "shutdown"],
             "role_request_fields": list(REQUIRED_REQUEST_FIELDS),
             "role_response_fields": sorted(ROLE_RESPONSE_FIELDS),
             "forbidden_role_fields": sorted(FORBIDDEN_ROLE_FIELDS),
@@ -186,6 +186,9 @@ class BridgeServer:
         for path in targets:
             if any(path == root or path.startswith(root + "/") for root in protected if root):
                 return {"allowed": False, "code": "PROTECTED_PATH", "reason": f"Write target is protected: {path}"}
+        workspace_block = self._workspace_conflict_block(targets)
+        if workspace_block:
+            return workspace_block
         if not active_tasks:
             return {"allowed": True, "reason": "NO_ACTIVE_TASK"}
         if tool_name == "bash":
@@ -204,16 +207,99 @@ class BridgeServer:
 
     def _op_workspace_status(self, _params: dict[str, Any]) -> dict[str, Any]:
         pilot = self.config.get("pilot_repository")
-        return {
-            "pilot_repository": pilot,
-            "pilot_connected": False,
-            "note": "Workspace Adapter lands in Batch 2; Batch 1 reports Runtime-managed state only.",
-            "event_store": str(self.runtime.event_store.path) if self.runtime.event_store.path else None,
-            "last_sequence": self.runtime.event_store.last_sequence(),
-            "workspace_classification": "UNKNOWN",
-        }
+        if not pilot:
+            return {
+                "pilot_repository": None,
+                "pilot_connected": False,
+                "note": "pilot_repository not configured; set .omp/dc-state/config.json",
+                "event_store": str(self.runtime.event_store.path) if self.runtime.event_store.path else None,
+                "last_sequence": self.runtime.event_store.last_sequence(),
+                "workspace_classification": "UNKNOWN",
+            }
+        try:
+            from workspace.adapter import WorkspaceAdapter
+
+            adapter = WorkspaceAdapter(pilot)
+            snapshot = adapter.snapshot(
+                read_scope=self.config.get("read_scope"),
+                write_scope=self.config.get("candidate_write_scope"),
+                relevant_paths=self.config.get("relevant_paths", []),
+                tool_versions=self.config.get("tool_versions", {}),
+                input_data_refs=self.config.get("input_data_refs", []),
+            )
+            classification = adapter.classify(snapshot)
+            return {
+                "pilot_repository": pilot,
+                "pilot_connected": True,
+                "workspace_classification": classification,
+                "branch": snapshot.get("branch"),
+                "commit": snapshot.get("commit"),
+                "tracked_modified": snapshot.get("tracked_modified"),
+                "untracked": snapshot.get("untracked"),
+                "relevant_file_hashes": snapshot.get("relevant_file_hashes"),
+                "event_store": str(self.runtime.event_store.path) if self.runtime.event_store.path else None,
+                "last_sequence": self.runtime.event_store.last_sequence(),
+            }
+        except Exception as error:  # noqa: BLE001 - adapter must never crash the bridge
+            return {
+                "pilot_repository": pilot,
+                "pilot_connected": False,
+                "workspace_classification": "UNKNOWN",
+                "error": str(error),
+                "event_store": str(self.runtime.event_store.path) if self.runtime.event_store.path else None,
+                "last_sequence": self.runtime.event_store.last_sequence(),
+            }
+
+    def _op_capture_baseline(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Capture a real workspace Baseline (read-only) from the pilot repo."""
+        pilot = params.get("pilot_repository") or self.config.get("pilot_repository")
+        if not pilot:
+            raise ContractError("PILOT_NOT_CONFIGURED", "pilot_repository is not configured")
+        from workspace.adapter import WorkspaceAdapter
+        from workspace.baseline import WorkspaceBaseline
+
+        adapter = WorkspaceAdapter(pilot)
+        relevant = params.get("relevant_paths") or self.config.get("relevant_paths", [])
+        read_scope = params.get("read_scope") or self.config.get("read_scope")
+        write_scope = params.get("write_scope") or self.config.get("candidate_write_scope")
+        snapshot = adapter.snapshot(
+            read_scope=read_scope,
+            write_scope=write_scope,
+            relevant_paths=relevant,
+            tool_versions=params.get("tool_versions") or self.config.get("tool_versions", {}),
+            input_data_refs=params.get("input_data_refs") or self.config.get("input_data_refs", []),
+        )
+        classification = adapter.classify(snapshot)
+        baseline = WorkspaceBaseline(adapter).capture(snapshot)
+        return {"baseline": baseline, "classification": classification, "snapshot": snapshot}
 
     # -- guard helpers ---------------------------------------------------
+    def _workspace_conflict_block(self, targets: list[str]) -> dict[str, Any] | None:
+        """Deny writes into a pilot workspace classified UNKNOWN/CONFLICTING (plan §13.4)."""
+        pilot = self.config.get("pilot_repository")
+        if not pilot or not targets:
+            return None
+        try:
+            from workspace.adapter import WRITE_FORBIDDEN, WorkspaceAdapter
+
+            adapter = WorkspaceAdapter(pilot)
+            snapshot = adapter.snapshot(
+                read_scope=self.config.get("read_scope"),
+                write_scope=self.config.get("candidate_write_scope"),
+                relevant_paths=self.config.get("relevant_paths", []),
+            )
+            classification = adapter.classify(snapshot)
+        except Exception:  # noqa: BLE001 - adapter failure degrades to allow (active-task approval still gates)
+            return None
+        if classification not in WRITE_FORBIDDEN:
+            return None
+        return {
+            "allowed": False,
+            "code": "WORKSPACE_" + classification,
+            "reason": f"Pilot workspace is {classification}; WRITE forbidden (plan §13.4). Resolve workspace state first.",
+            "workspace_classification": classification,
+        }
+
     def _approval_decision(self, tasks: list[dict[str, Any]], *, classification: str = "", matched: str = "") -> dict[str, Any]:
         details: list[dict[str, Any]] = []
         for task in tasks:

@@ -5,7 +5,7 @@
 > 前置状态：Milestone 2 — `EXECUTED / FROZEN`
 > 开发分支：`base/develop`
 > 执行平台：OMP/pi
-> 计划状态：`IN PROGRESS`（2026-08-03 用户授权，自 Batch 1 起）
+> 计划状态：`OMP HARNESS READY`（2026-08-03 Gate A 判定 PASS，Batch 1 已提交 `a70ca90`）
 > 语义权威：`docs/execution-contract.md`
 > 计划文件：`docs/develoip-copilot-Milestone3执行计划.md`
 

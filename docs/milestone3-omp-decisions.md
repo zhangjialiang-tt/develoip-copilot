@@ -89,9 +89,22 @@
 
 ```text
 python -m pytest -q
-python -m compileall -q runtime roles tools adapters fixtures tests
+python -m compileall -q runtime roles tools adapters fixtures tests workspace
 bun tests/omp/smoke.ts
 git diff --check
 ```
 
 真实 OMP 会话内验证（`/dc doctor`、工具可调用、Guard 拦截）需在加载本 Extension 的会话中执行，见 `docs/milestone3-validation-report.md`（Batch 1 收尾时产出）。
+
+## 9. Batch 2 决策（Workspace 与 Baseline）
+
+- 试点仓库：`C:/100-Working/102-Working-Prj/ptrw038/2`（git root 即自身），分支 `feature_axi`，基线 commit `fb2ed49`；工作区分类 CLEAN。
+- 试点问题：验证 `qspi_driver_new.v` 的 testbench 基线（`qspi_driver_sim` 自检 testbench）。隔离副本运行结果 **TEST PASSED（errors=0）**；已注册 `evidence-qspi-sim-a`（simulation，绑定 `baseline-qspi-a`）。
+- 新模块（计划 §20 目录）：
+  - `workspace/scope.py`：路径规范化/作用域归属/重叠/校验——Guard 与写作用域判定共用同一语义。
+  - `workspace/adapter.py`：只读快照（git root/branch/commit/tracked/untracked/ignored/submodule/相关文件哈希/工具版本/输入引用）+ 五态分类（CLEAN/DIRTY_RELATED/DIRTY_UNRELATED/CONFLICTING/UNKNOWN）+ 前后 diff。UNKNOWN/CONFLICTING 禁写。
+  - `workspace/baseline.py`：Runtime 兼容 Baseline 载荷（`commit:digest` 指纹 + 作用域文件哈希）。
+  - `workspace/isolation.py`：隔离（git worktree 优先，temp clone 回退）；结果以 patch 保留，不自动合回；close 时清理。
+- Bridge 接入：`workspace_status` 真实化（adapter 快照+分类）；新 op `capture_baseline`（只读）；Guard 增加 `WORKSPACE_CONFLICTING/WORKSPACE_UNKNOWN` 拦截（分类禁写）；`dc_capture_baseline` 工具注册。
+- 隔离语义：试点仿真在临时镜像（`%TEMP%/dc-pilot-sim`）中运行，用户工作区零修改（已校验 CLEAN 保持）。
+- 待办：`candidate_write_scope` 留空（Batch 5 前由用户定义）；approval-scope 精确匹配在 Batch 5 细化。

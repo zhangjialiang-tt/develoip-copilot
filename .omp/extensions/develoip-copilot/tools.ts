@@ -150,12 +150,31 @@ export function registerTools(pi: ExtensionAPI, bridge: BridgeClient): void {
   pi.registerTool({
     name: "dc_workspace_status",
     label: "DC Workspace Status",
-    description: "Report pilot workspace connection state and Runtime-managed state location.",
+    description: "Report pilot workspace connection state, classification, branch/commit and Runtime-managed state location.",
     parameters: z.object({}),
     hidden: false,
     defaultInactive: false,
     async execute(): Promise<ToolResult> {
       return text(await bridge.request("workspace_status"));
+    },
+  });
+
+  pi.registerTool({
+    name: "dc_capture_baseline",
+    label: "DC Capture Baseline",
+    description:
+      "Capture a real pilot-workspace Baseline (read-only): git commit + relevant file hashes + tool versions + input refs, plus the workspace classification. Bind the result to a Task via BIND_BASELINE (dc_dispatch).",
+    parameters: z.object({
+      relevant_paths: z.array(z.string()).optional(),
+      read_scope: z.object({ paths: z.array(z.string()) }).optional(),
+      tool_versions: z.record(z.string(), z.string()).optional(),
+      input_data_refs: z.array(z.string()).optional(),
+    }),
+    hidden: false,
+    defaultInactive: false,
+    async execute(_id: string, params: { relevant_paths?: string[]; read_scope?: { paths: string[] }; tool_versions?: Record<string, string>; input_data_refs?: string[] }): Promise<ToolResult> {
+      const result = await bridge.request("capture_baseline", params);
+      return text(result);
     },
   });
 }

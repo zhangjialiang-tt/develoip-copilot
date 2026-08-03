@@ -26,6 +26,7 @@ OPS = (
     "submit_candidates",
     "guard_check",
     "workspace_status",
+    "capture_baseline",
     "shutdown",
 )
 
