@@ -37,8 +37,8 @@ class RoleInvocationLayer:
         candidate = handler(deepcopy(request))
         if not isinstance(candidate, dict):
             raise ContractError("ROLE_RESPONSE_INVALID", "Role response must be an object")
-        if any(key in candidate for key in {"gate_status", "claim_status", "closure_status", "project_status"}):
-            raise ContractError("ROLE_DIRECT_STATE_WRITE_FORBIDDEN", "Role may not return Derived Result writes")
+        if any(key in candidate for key in {"gate_status", "claim_status", "closure_status", "project_status", "approval_granted", "task_closed"}):
+            raise ContractError("ROLE_DIRECT_STATE_WRITE_FORBIDDEN", "Role may not return Derived Result writes or status overrides")
         response = {
             "role": request["role"],
             "status": "PROPOSED",

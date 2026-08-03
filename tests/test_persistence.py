@@ -50,3 +50,19 @@ def test_event_store_rejects_non_contiguous_sequence(tmp_path):
         JsonlEventStore(path)
 
     assert error.value.code == "EVENT_SEQUENCE_INVALID"
+
+
+
+def test_restore_rejects_snapshot_that_lags_event_store(tmp_path):
+    from runtime.core import Runtime
+    from runtime.errors import ContractError
+
+    path = tmp_path / "events.jsonl"
+    runtime = Runtime(JsonlEventStore(path))
+    runtime.dispatch({"command_id": "c1", "command_type": "CREATE_TASK", "actor": "orchestrator", "payload": {"task_id": "task-1"}})
+    runtime.save_snapshot(tmp_path / "snapshot.json")
+    runtime.dispatch({"command_id": "c2", "command_type": "CANCEL_TASK", "actor": "orchestrator", "target_ref": {"object_id": "task-1"}, "payload": {}})
+
+    with pytest.raises(ContractError) as error:
+        Runtime.restore(JsonlEventStore(path), tmp_path / "snapshot.json")
+    assert error.value.code == "SNAPSHOT_SEQUENCE_CONFLICT"

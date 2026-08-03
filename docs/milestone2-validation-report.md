@@ -5,8 +5,9 @@
 > 语义权威：[execution-contract.md](execution-contract.md)
 > 起始分支：`base/develop`
 > Milestone 2 起始 commit：`9192a740d20fbe30d48df0c033f30001c21a0cdc`
-> 当前冻结候选 commit：`157764b61f8a97d6c2fdeaf5e15dde7c1ed44363`
-> 远程分支：`origin/base/develop` 与当前 `base/develop` 同步，均指向当前冻结候选 commit
+> Milestone 2 功能冻结 commit：`157764b61f8a97d6c2fdeaf5e15dde7c1ed44363`
+> 收尾提交：`d2a9ad8a70851fab7402c08c51cbfb80e75218cc`（仅 `.gitignore`、缓存索引清理与本报告修正；无 Runtime/测试行为变化）
+> 远程分支：`origin/base/develop` 与当前 `base/develop` 同步
 
 ## 1. 实现范围
 

@@ -6,3 +6,7 @@
 # Local runtime outputs
 runtime.snapshot.json
 *.jsonl
+
+
+# develoip-copilot bridge runtime state (event store, snapshots, logs)
+.omp/dc-state/
