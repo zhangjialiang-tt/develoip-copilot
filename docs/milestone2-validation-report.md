@@ -4,7 +4,9 @@
 > 结果：EXECUTED / FROZEN
 > 语义权威：[execution-contract.md](execution-contract.md)
 > 起始分支：`base/develop`
-> 起始/当前 `HEAD`：`9192a740d20fbe30d48df0c033f30001c21a0cdc`
+> Milestone 2 起始 commit：`9192a740d20fbe30d48df0c033f30001c21a0cdc`
+> 当前冻结候选 commit：`157764b61f8a97d6c2fdeaf5e15dde7c1ed44363`
+> 远程分支：`origin/base/develop` 与当前 `base/develop` 同步，均指向当前冻结候选 commit
 
 ## 1. 实现范围
 
@@ -34,6 +36,8 @@
 python -m pytest -q
 41 passed
 ```
+
+该结果是本地工作区执行证据；当前仓库没有配置独立 CI，因此没有独立 CI 复验结论。
 
 其中：
 
@@ -103,7 +107,7 @@ S03 / S06 / S13 / S20 / S24
 
 `RuntimeEvent` 与长期 Record 分离。测试验证了 Record `written`、`declined` 路径；普通命令、完整聊天历史和原始日志不自动生成长期 Record。
 
-当前没有创建 commit、branch、PR、push 或真实设备写操作。工作区中的 Milestone 2 计划文件是用户提供的未跟踪输入，已保留；实现文件和报告也是当前未提交交付物。
+Milestone 2 实现已存在于远程 `base/develop` 分支，当前冻结候选 commit 为 `157764b61f8a97d6c2fdeaf5e15dde7c1ed44363`。本次修正尚未创建新的提交、branch、PR 或 push；真实设备写操作仍未执行。缓存文件仅从 Git 索引移除，本地生成文件保留。
 
 ## 5. 剩余限制与后续入口
 

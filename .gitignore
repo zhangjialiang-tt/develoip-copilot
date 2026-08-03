@@ -1,0 +1,8 @@
+# Python generated artifacts
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local runtime outputs
+runtime.snapshot.json
+*.jsonl
