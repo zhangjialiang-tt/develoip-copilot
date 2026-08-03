@@ -2,7 +2,8 @@
 
 > 里程碑：Unified Execution Contract
 > 前置基线：整体架构设计蓝图 v1.2，状态为 `Milestone 1 — FROZEN`
-> 计划状态：`APPROVED CANDIDATE`
+> 计划状态：`EXECUTED`
+> 里程碑状态：`Milestone 1.5 — FROZEN`
 > 唯一权威交付物：`execution-contract.md`
 > 执行方式：5 个 Batch，4 个硬门禁
 > 核心目标：形成面向 QSPI 纵向样板的最小、统一、可拒绝、可测试执行契约
