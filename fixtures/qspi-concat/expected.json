@@ -1,0 +1,4 @@
+{
+  "expected_word": 305419896,
+  "description": "QSPI bytes are concatenated in bus order: 0x12 0x34 0x56 0x78 -> 0x12345678"
+}
