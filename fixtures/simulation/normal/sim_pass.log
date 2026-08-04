@@ -1,0 +1,21 @@
+# Simulation log for testing
+# ModelSim style log
+
+# Loading work.tb
+# ** Note: Compiling design units
+# ** Warning: Width mismatch in assignment
+# ** Warning: Width mismatch in assignment
+# run -all
+# Running test scenario...
+# Checking byte 0: PASS
+# Checking byte 1: PASS
+# Checking byte 2: PASS
+# Checking byte 3: PASS
+# Erase verify: PASS
+# Prog verify: PASS
+# Enter 4-byte address: ADS=1 OK
+# 
+# TEST PASSED
+# Errors: 0
+# Warnings: 2
+#  $+finish

@@ -1,0 +1,18 @@
+# Simulation log for testing - failure case
+# ModelSim style log
+
+# Loading work.tb
+# ** Error: Assertion failure at time 120ns
+# ** Warning: Width mismatch in assignment
+# run -all
+# Running test scenario...
+# Checking byte 0: PASS
+# Checking byte 1: FAIL - expected 0x01, got 0x02
+# Checking byte 2: FAIL - expected 0x02, got 0x03
+# ** Error: tb.sv:45: data mismatch at byte 1
+# ** Error: tb.sv:45: data mismatch at byte 2
+# 
+# TEST FAILED
+# Errors: 2
+# Warnings: 1
+#  $+finish
