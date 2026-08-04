@@ -36,18 +36,21 @@ description: >
 
 ## Procedure
 
-1. 确认待分析 RTL 文件、顶层模块和分析范围
-2. 使用 `tools/rtl/extract_modules.py` 提取模块列表
-3. 使用 `tools/rtl/extract_interfaces.py` 提取端口和参数
-4. 使用 `tools/rtl/build_hierarchy.py` 构建实例层级
-5. 使用 `tools/rtl/scan_clock_reset.py` 扫描时钟和复位
-6. 调用 `rtl-analyst` Agent 对工具结果进行语义解释
-7. 标记无法确定的动态行为
-8. 生成结构分析报告
+1. 确认待分析 RTL 文件、顶层模块和分析范围（用户未指定顶层时主动询问，不猜测）。
+2. 调用 `rtl-analyst` 规划分析重点与关注点。
+3. 使用确定性工具收集证据（优先 `--json` 结构化输出）：
+   - `tools/rtl/extract_modules.py --json` 提取模块列表
+   - `tools/rtl/extract_interfaces.py --json` 提取端口和参数
+   - `tools/rtl/build_hierarchy.py --json` 构建实例层级
+   - `tools/rtl/scan_clock_reset.py --json` 扫描时钟和复位
+4. 基于工具证据识别状态机与协议边界（`rtl-analyst` 语义解释；当前无专用工具，须显式标注置信度与依据）。
+5. 对工具结果进行语义解释，串联接口、层级、时钟域与数据流。
+6. 标记无法确定的动态行为（显式写"未确定"及原因）。
+7. 按 `templates/` 模板生成 6 个结构分析产物文件。
 
 ## Delegation
 
-- `rtl-analyst`: RTL 结构语义解释、风险识别、报告生成
+- `rtl-analyst`: RTL 结构语义解释、状态机/协议边界识别、风险标记、按 `templates/` 模板生成报告
 
 ## Tools
 
@@ -58,11 +61,14 @@ description: >
 
 ## Outputs
 
-- `rtl-analysis.md` — 结构分析主报告
-- `interface-table.md` — 接口清单表
-- `module-hierarchy.md` — 模块层级文档
-- `clock-reset-map.md` — 时钟复位映射
-- `risk-notes.md` — 风险备注
+所有产物默认写入 `.project/rtl-analysis/<top_module>/`，或由用户在请求中指定目录。报告严格按 `templates/` 下对应模板生成，保持章节与表格字段固定。
+
+- `rtl-analysis.md` — 结构分析主报告（总览 + 分项索引）
+- `interface-table.md` — 接口清单表（模块 / 参数 / 端口方向位宽）
+- `module-hierarchy.md` — 模块实例层级树
+- `dataflow.md` — 数据流与关键信号连接
+- `clock-reset-map.md` — 时钟与复位域映射
+- `risk-notes.md` — 风险与不确定性备注
 
 ## Validation
 
@@ -73,11 +79,12 @@ description: >
 
 ## Failure handling
 
-- RTL 语法错误：报告具体文件和行号，不继续分析
-- 缺少顶层模块：请求用户指定，不猜测
-- 工具不可用：报告缺失命令和安装方式
+- 完整性以 `extract_modules` 结果为权威信号：若其返回空列表，或模块数与 `build_hierarchy`/`extract_interfaces` 明显不一致，判定输入不完整（截断 / 语法错误 / 缺少顶层），主动请求用户补充，不继续猜测。
+- 语法错误：当前工具为正则解析、**不编译**，无法自动识别语法错误。当模块头无法闭合导致 `extract_modules` 返回空时，按"输入不完整"处理并提示用户用编译器 / 仿真器验证；报告中不得伪称语法正确。
+- 缺少顶层模块：请求用户指定，不臆造顶层（多模块文件必须由用户或调用方选定顶层）。
+- 工具不可用：报告缺失命令和安装方式。
 
 ## Safety
 
 - 默认只读，不修改 RTL 文件
-- 分析报告写入用户指定目录或默认输出目录
+- 分析报告默认写入 `.project/rtl-analysis/<top_module>/`，或用户指定目录

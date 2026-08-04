@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# run_sim.sh.tmpl — 仿真运行脚本脚手架（占位符用 <...> 标注）
+# 由 verification-engineer 在隔离目录中填充。优先使用已检测到的仿真器。
+set -euo pipefail
+
+SIM=${SIM:-"<vsim|iverilog>"}   # 若未指定，由 SKILL 检测可用仿真器填入
+OUT_DIR="<output_dir>"
+DUT="<top_module>"
+
+mkdir -p "$OUT_DIR"
+
+case "$SIM" in
+  vsim)
+    # ModelSim/Questa：编译 + 运行 + 转储日志
+    vlog -work work "<dut_file>" "$OUT_DIR/<top_module>_tb.sv" 2>&1 | tee "$OUT_DIR/compile.log"
+    vsim -c -do "run -all; quit -f" work.${DUT}_tb 2>&1 | tee "$OUT_DIR/sim.log"
+    ;;
+  iverilog)
+    # Icarus Verilog（FOSS）：编译为 vvp 后运行
+    iverilog -g2012 -o "$OUT_DIR/${DUT}_tb.vvp" "<dut_file>" "$OUT_DIR/<top_module>_tb.sv"
+    vvp "$OUT_DIR/${DUT}_tb.vvp" 2>&1 | tee "$OUT_DIR/sim.log"
+    ;;
+  *)
+    echo "Error: 仿真器不可用（vsim/iverilog 均未检测到）。请安装其一或显式指定 SIM。" >&2
+    exit 2
+    ;;
+esac
+
+# 日志解析（供 simulation-analyst / 报告使用）
+python3 tools/simulation/parse_log.py "$OUT_DIR/sim.log" --json

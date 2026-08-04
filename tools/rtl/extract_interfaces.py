@@ -6,6 +6,76 @@ import json
 import sys
 from pathlib import Path
 
+KEYWORDS = {
+    "wire", "reg", "logic", "bit", "signed", "input", "output", "inout",
+    "parameter", "localparam", "typedef", "enum", "struct", "generate",
+    "function", "task", "module", "endmodule",
+}
+
+
+def _strip_comments(content: str) -> str:
+    content = re.sub(r"//.*", "", content)
+    content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
+    # drop `include / `define lines (not parsed here)
+    content = re.sub(r"`\w+.*", "", content)
+    return content
+
+
+def _balanced(text: str, start: int):
+    """text[start] must be '('; return (inner_text, index_after_close)."""
+    assert text[start] == "("
+    depth = 0
+    i = start
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "(":
+            depth += 1
+        elif c == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:i], i + 1
+        i += 1
+    return text[start + 1:], n
+
+
+def _parse_header(content: str, i: int):
+    """Starting right after 'module NAME', consume #(...) and (...).
+    Returns (param_block, port_block, index_after_close)."""
+    param_block = ""
+    port_block = ""
+    n = len(content)
+    # skip spaces
+    while i < n and content[i] in " \t\r\n":
+        i += 1
+    if i < n and content[i] == "#":
+        i += 1
+        while i < n and content[i] in " \t\r\n":
+            i += 1
+        if i < n and content[i] == "(":
+            param_block, i = _balanced(content, i)
+    while i < n and content[i] in " \t\r\n":
+        i += 1
+    if i < n and content[i] == "(":
+        port_block, i = _balanced(content, i)
+    return param_block, port_block, i
+
+
+def _find_modules(content: str):
+    """Return list of dicts: name, line, param_block, port_block, body."""
+    modules = []
+    for m in re.finditer(r"\bmodule\s+(\w+)", content):
+        name = m.group(1)
+        line = content[: m.start()].count("\n") + 1
+        param_block, port_block, i = _parse_header(content, m.end())
+        end = content.find("endmodule", i)
+        body = content[i:end] if end != -1 else content[i:]
+        modules.append({
+            "name": name, "line": line,
+            "param_block": param_block, "port_block": port_block, "body": body,
+        })
+    return modules
+
 
 def extract_interfaces(filepath: str) -> list[dict]:
     """Extract port and parameter definitions from a Verilog/SystemVerilog file."""
@@ -14,65 +84,49 @@ def extract_interfaces(filepath: str) -> list[dict]:
         print(f"Error: file not found: {filepath}", file=sys.stderr)
         sys.exit(1)
 
-    content = path.read_text(encoding="utf-8", errors="replace")
-    content = re.sub(r"//.*", "", content)
-    content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
-
+    content = _strip_comments(path.read_text(encoding="utf-8", errors="replace"))
     interfaces = []
 
-    # Match module ... endmodule blocks
-    module_pattern = re.compile(
-        r"\bmodule\s+(\w+)\s*(?:#\s*\((.*?)\))?\s*(?:\((.*?)\))?\s*;(.*?)endmodule",
-        re.DOTALL,
+    # Inline port parse: capture direction, optional width right after the type,
+    # and the name. Width is parsed at the declaration site (no global search),
+    # so a 1-bit port keeps width=None instead of a mis-matched range.
+    port_re = re.compile(
+        r"\b(input|output|inout)\b\s*"
+        r"(?:wire|reg|logic|bit|signed)?\s*"
+        r"(?:\[(?P<w>[^\]]+)\])?\s*"
+        r"(?P<name>\w+)"
+    )
+    # Parameter default may contain parentheses (e.g. $clog2(WIDTH)).
+    param_re = re.compile(
+        r"\bparameter\s+(?:\[(?P<pw>[^\]]+)\]\s*)?(?P<pname>\w+)\s*=\s*(?P<pval>[^,;]+)"
     )
 
-    for match in module_pattern.finditer(content):
-        module_name = match.group(1)
-        param_block = match.group(2) or ""
-        port_block = match.group(3) or ""
-        body = match.group(4) or ""
-
-        # Extract parameters
+    for mod in _find_modules(content):
         params = []
-        for pm in re.finditer(
-            r"parameter\s+(?:\[.*?\]\s+)?(\w+)\s*=\s*([^,;)]+)", param_block
-        ):
-            params.append({"name": pm.group(1), "default": pm.group(2).strip()})
+        for pm in param_re.finditer(mod["param_block"] + "\n" + mod["body"]):
+            params.append({
+                "name": pm.group("pname"),
+                "default": pm.group("pval").strip(),
+                "width": pm.group("pw"),
+            })
 
-        # Also check body for parameter overrides
-        if not params:
-            for pm in re.finditer(
-                r"parameter\s+(?:\[.*?\]\s+)?(\w+)\s*=\s*([^;]+)", body
-            ):
-                params.append({"name": pm.group(1), "default": pm.group(2).strip()})
-
-        # Extract ports (Verilog-2001 style: input/output in port list)
         ports = []
-        port_pattern = re.compile(
-            r"(input|output|inout)\s+(?:wire|reg|logic)?\s*(?:\[[^\]]+\])?\s*(\w+)"
-        )
-        for port_match in port_pattern.finditer(port_block + "\n" + body):
-            direction = port_match.group(1)
-            name = port_match.group(2)
-            # Skip if name looks like a keyword
-            if name in ("wire", "reg", "logic", "input", "output", "inout"):
+        for pm in port_re.finditer(mod["port_block"] + "\n" + mod["body"]):
+            direction = pm.group(1)
+            name = pm.group("name")
+            if name in KEYWORDS:
                 continue
-            # Try to extract width from surrounding context
-            width_match = re.search(
-                r"\[[^\]]+\]\s*" + re.escape(name),
-                port_block + "\n" + body,
-            )
-            if width_match:
-                width = width_match.group(0).split("]")[0] + "]"
-                width = width.strip()
-            else:
-                width = "[0:0]"
-            ports.append({"name": name, "direction": direction, "width": width})
+            width = pm.group("w")  # None => implicit 1-bit
+            ports.append({
+                "name": name,
+                "direction": direction,
+                "width": width,
+            })
 
         interfaces.append({
-            "module": module_name,
+            "module": mod["name"],
             "file": str(path),
-            "line": content[: match.start()].count("\n") + 1,
+            "line": mod["line"],
             "parameters": params,
             "ports": ports,
         })
@@ -102,11 +156,13 @@ def main():
             if iface["parameters"]:
                 print("  Parameters:")
                 for p in iface["parameters"]:
-                    print(f"    {p['name']} = {p['default']}")
+                    w = f"[{p['width']}] " if p["width"] else ""
+                    print(f"    {p['name']} = {p['default']} {w}")
             if iface["ports"]:
                 print("  Ports:")
                 for port in iface["ports"]:
-                    print(f"    {port['direction']:6s} {port['width']:10s} {port['name']}")
+                    w = port["width"] if port["width"] else "1-bit"
+                    print(f"    {port['direction']:6s} {w:12s} {port['name']}")
 
 
 if __name__ == "__main__":

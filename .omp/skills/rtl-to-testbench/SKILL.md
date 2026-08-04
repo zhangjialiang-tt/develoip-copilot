@@ -25,11 +25,11 @@ description: >
 
 - DUT RTL 文件路径
 - 顶层模块名称
-- 输出目录
+- 输出目录（用户未指定时默认 `.project/tb/<top_module>/`）
 
 ## Optional inputs
 
-- 仿真器命令（默认 vsim）
+- 仿真器命令（默认自动检测：优先 vsim，退回 iverilog；均不可用则报告阻塞）
 - 时钟周期定义
 - 复位时序
 - 协议行为说明
@@ -37,23 +37,22 @@ description: >
 
 ## Procedure
 
-1. 确认 DUT 文件、顶层模块、输出目录和仿真器
-2. 使用 `tools/rtl/extract_interfaces.py` 提取 DUT 接口
-3. 使用 `tools/rtl/scan_clock_reset.py` 提取时钟和复位
-4. 调用 `rtl-analyst` 校验接口分析是否完整
-5. 缺少关键行为定义时请求用户补充
-6. 调用 `verification-engineer` 设计验证计划和 testbench
-7. 在隔离 worktree 中生成 testbench 和运行脚本
-8. 使用 `tools/simulation/run.py` 执行仿真
-9. 失败时调用 `simulation-analyst` 定位首个失败
-10. 输出 testbench、日志和验证报告
-11. 用户确认后再应用到正式工程
+1. 确认 DUT 文件、顶层模块、输出目录和仿真器（未指定输出目录时用默认 `.project/tb/<top_module>/`）
+2. 调用 `rtl-analyst` 提取接口、时钟、复位和协议：先用 `tools/rtl/extract_interfaces.py`、`tools/rtl/scan_clock_reset.py` 取证，再由 agent 整合；协议无专用工具，由 agent 基于工具证据与用户说明推断并标注置信度
+3. 校验接口分析是否完整（接口、时钟、复位、协议假设均闭合或显式标注未确定项）
+4. 缺少关键行为定义时请求用户补充
+5. 调用 `verification-engineer` 设计验证计划（按 `templates/verification-plan.md`）
+6. 在隔离 worktree/目录中生成 testbench 与运行脚本（按 `templates/tb-top.sv.tmpl`、`templates/run_sim.sh.tmpl`；向量见 `templates/vectors.md`）
+7. 执行仿真（使用 `tools/simulation/run.py`）
+8. 失败时调用 `simulation-analyst` 基于 `tools/simulation/extract_failures.py` 定位首个失败
+9. 输出 testbench、日志和验证报告（按 `templates/verification-report.md`）
+10. 用户确认后再应用到正式工程
 
 ## Delegation
 
-- `rtl-analyst`: 接口提取校验
-- `verification-engineer`: 验证计划、testbench 设计、仿真脚本
-- `simulation-analyst`: 仿真失败分析（按需）
+- `rtl-analyst`: 接口/时钟/复位提取与协议推断（协议为 agent 基于工具证据+用户说明推断，标置信度）
+- `verification-engineer`: 验证计划、testbench 设计、仿真脚本（按 `templates/` 生成）
+- `simulation-analyst`: 仿真失败分析，使用 `tools/simulation/extract_failures.py`、`aggregate_regression.py`（按需）
 
 ## Tools
 
@@ -61,17 +60,22 @@ description: >
 - `tools/rtl/scan_clock_reset.py` — 扫描时钟复位
 - `tools/simulation/run.py` — 执行仿真
 - `tools/simulation/parse_log.py` — 解析仿真日志
+- `tools/simulation/extract_failures.py` — 提取首个/全部失败（供 simulation-analyst）
+- `tools/simulation/aggregate_regression.py` — 回归结果聚合
 
 ## Outputs
 
-- `verification-plan.md` — 验证计划
-- `tb/*.sv` — testbench 文件
-- `vectors/*` — 测试向量
-- `run_sim.*` — 仿真运行脚本
-- `verification-report.md` — 验证报告
+- `verification-plan.md` — 验证计划（模板：`templates/verification-plan.md`）
+- `tb/*.sv` — testbench 文件（骨架：`templates/tb-top.sv.tmpl`）
+- `vectors/*` — 测试向量（模板：`templates/vectors.md`）
+- `run_sim.*` — 仿真运行脚本（骨架：`templates/run_sim.sh.tmpl`）
+- `verification-report.md` — 验证报告（模板：`templates/verification-report.md`）
+
+默认输出目录：`.project/tb/<top_module>/`（用户指定时以其为准）。
 
 ## Validation
 
+- 仿真器可用：先检测 vsim/iverilog，缺省用可用者；均不可用则按 design Milestone3 验收"正确报告阻塞"，不伪造编译成功
 - testbench 可编译（仿真器返回零错误）
 - 至少一个测试场景 PASS
 - self-checking 机制已启用
@@ -79,9 +83,9 @@ description: >
 
 ## Failure handling
 
-- 仿真失败：保留日志，调用 simulation-analyst 分析
-- 接口不完整：请求用户补充行为定义
-- 仿真器不可用：报告缺失命令和安装方式
+- 仿真失败：保留日志，调用 simulation-analyst 用 `extract_failures.py` 定位首个失败
+- 接口不完整或协议未知：请求用户补充行为定义，不在无依据时臆测
+- 仿真器不可用：报告缺失命令（vsim 或 iverilog）与安装方式，不声称已编译通过
 
 ## Safety
 

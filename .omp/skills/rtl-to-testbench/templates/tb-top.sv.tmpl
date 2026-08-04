@@ -1,0 +1,47 @@
+// tb-top.sv.tmpl — testbench 顶层脚手架（占位符用 <...> 标注）
+// 由 verification-engineer 在隔离目录中填充，本文件为结构骨架，不替代协议/激励设计。
+`timescale 1ns/1ps
+
+module <top_module>_tb;
+
+  // === 参数（来自 extract_interfaces.params，无则删除本段） ===
+  parameter <PARAM> = <DEFAULT>;
+
+  // === 时钟与复位（来自 scan_clock_reset） ===
+  reg  <clk_sig>;
+  reg  <rst_sig>;   // <低有效请注 _n / 同步异步见 plan>
+
+  // === DUT 端口（方向/位宽来自 extract_interfaces.ports） ===
+  reg   <port_in> ;
+  wire  <port_out>;
+
+  // === 时钟生成（周期由用户输入或默认 10ns） ===
+  initial <clk_sig> = 0;
+  always #(<PERIOD_NS>/2) <clk_sig> = ~<clk_sig>;
+
+  // === 复位序列 ===
+  initial begin
+    <rst_sig> = <ACTIVE_VALUE>;
+    #<RESET_NS>;
+    <rst_sig> = <INACTIVE_VALUE>;
+  end
+
+  // === DUT 实例化 ===
+  <top_module> #(. <PARAM> (<PARAM>) ) u_dut (
+    .<clk>   (<clk_sig>),
+    .<rst>   (<rst_sig>),
+    .<port_in>  (<port_in>),
+    .<port_out> (<port_out>)
+  );
+
+  // === 激励（按 verification-plan 的激励策略实现） ===
+  initial begin
+    // <初始化与定向/随机激励>
+    #<RUN_NS>;
+    $finish;
+  end
+
+  // === 自检测（scoreboard / assertion，按 plan 实现） ===
+  // <如：参考模型比较、协议违例断言>
+
+endmodule

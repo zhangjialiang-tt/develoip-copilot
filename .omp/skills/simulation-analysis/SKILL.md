@@ -36,15 +36,15 @@ description: >
 ## Procedure
 
 1. 判断输入属于日志、波形、时序或回归结果
-2. 使用 `tools/simulation/parse_log.py` 提取结构化数据
-3. 使用 `tools/simulation/extract_failures.py` 定位首个失败
-4. 波形输入时使用 `tools/waveform/extract_window.py`
-5. 时序输入时使用 `tools/timing/parse_paths.py`
-6. 回归输入时使用 `tools/simulation/aggregate_regression.py`
-7. 调用 `simulation-analyst` Agent 分析证据
-8. 必要时调用 `rtl-analyst` 补充结构上下文
-9. 必要时调用 `verification-engineer` 判断测试环境问题
-10. 输出证据、判断和建议
+2. 使用对应 Python Parser 提取结构化数据（见 Tools；波形/时序为 Milestone 4 待实现）
+3. 定位第一个失败时间点或最差时序路径
+4. 识别相关信号、模块和时钟域
+5. 调用 `simulation-analyst` 基于证据做判断（**先证据后结论**，不把日志最后一个错误误认为首要根因）
+6. 必要时调用 `rtl-analyst` 补充结构上下文
+7. 必要时调用 `verification-engineer` 判断测试环境问题
+8. 按 `templates/simulation-analysis.md` 输出证据、判断和建议
+9. 波形/时序输入但对应工具未实现时，明确报告 Milestone 4 待办，**不伪造** `signal-window.csv` / `timing-summary.md`
+10. 产物写入默认目录 `.project/sim-analysis/<case>/`（或用户指定）
 
 ## Delegation
 
@@ -54,11 +54,14 @@ description: >
 
 ## Tools
 
-- `tools/simulation/parse_log.py` — 解析仿真日志
-- `tools/simulation/extract_failures.py` — 提取失败信息
-- `tools/simulation/aggregate_regression.py` — 聚合回归结果
-- `tools/waveform/extract_window.py` — 提取波形窗口
-- `tools/timing/parse_paths.py` — 解析时序路径
+- `tools/simulation/parse_log.py` — 解析仿真日志（可用）
+- `tools/simulation/extract_failures.py` — 提取失败信息（可用）
+- `tools/simulation/aggregate_regression.py` — 聚合回归结果（可用）
+- `tools/waveform/extract_window.py` — 提取波形窗口（⚠️ **Milestone 4 待实现**，尚未落地）
+- `tools/timing/parse_paths.py` — 解析时序路径（⚠️ **Milestone 4 待实现**，尚未落地）
+
+> 波形/时序工具是 design §10.3/§10.4 规划的 Milestone 4 能力，目前目录为空、未实现。
+> 收到波形/时序输入时按 Procedure 第 9 步诚实报告，不伪造产物。
 
 ## Outputs
 

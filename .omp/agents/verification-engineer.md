@@ -31,7 +31,8 @@
 
 ## 输出约定
 
-- 验证计划摘要
-- testbench 文件列表和说明
-- 仿真运行命令
+- 验证计划（按 `rtl-to-testbench/templates/verification-plan.md` 生成，字段固定）
+- testbench 文件列表和说明（骨架参考 `templates/tb-top.sv.tmpl`）
+- 仿真运行命令（脚本骨架参考 `templates/run_sim.sh.tmpl`）
 - 验证结果解释
+- 协议/行为假设须标注置信度（高/中/低）与依据，不确定项显式列出
