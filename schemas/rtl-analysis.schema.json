@@ -1,0 +1,226 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/zhangjialiang-tt/develoip-copilot/schemas/rtl-analysis.schema.json",
+  "title": "RTL Analysis Result",
+  "description": "Structured output from RTL architecture analysis, integrating module extraction, interface extraction, and clock/reset scanning",
+  "type": "object",
+  "required": ["schema_version", "top_module", "source_files", "status"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version identifier"
+    },
+    "top_module": {
+      "type": "string",
+      "description": "Name of the top-level module"
+    },
+    "source_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of RTL source files analyzed"
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Parameter name"
+          },
+          "default": {
+            "type": ["string", "null"],
+            "description": "Default value if specified, null otherwise"
+          },
+          "width": {
+            "type": ["string", "null"],
+            "description": "Width expression if specified, null otherwise"
+          }
+        }
+      },
+      "description": "Module parameters"
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "direction"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Port name"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["input", "output", "inout"],
+            "description": "Port direction"
+          },
+          "width_expression": {
+            "type": ["string", "null"],
+            "description": "Width expression (e.g., 'WIDTH-1:0'), null for scalar"
+          },
+          "source_file": {
+            "type": "string",
+            "description": "Source file where port is defined"
+          },
+          "source_line": {
+            "type": "integer",
+            "description": "Line number in source file"
+          }
+        }
+      },
+      "description": "Module ports"
+    },
+    "clocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "edge", "confidence"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Clock signal name"
+          },
+          "edge": {
+            "type": "string",
+            "enum": ["posedge", "negedge", "UNKNOWN"],
+            "description": "Clock edge (posedge or negedge)"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN"],
+            "description": "Confidence level of clock identification"
+          }
+        }
+      },
+      "description": "Clock signals"
+    },
+    "resets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "active_level", "kind", "confidence"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Reset signal name"
+          },
+          "active_level": {
+            "type": "string",
+            "enum": ["HIGH", "LOW", "UNKNOWN"],
+            "description": "Active level (HIGH for active-high, LOW for active-low)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["ASYNC", "SYNC", "UNKNOWN"],
+            "description": "Reset kind (asynchronous or synchronous)"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW", "UNKNOWN"],
+            "description": "Confidence level of reset identification"
+          }
+        }
+      },
+      "description": "Reset signals"
+    },
+    "instances": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "module"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Instance name"
+          },
+          "module": {
+            "type": "string",
+            "description": "Module type instantiated"
+          },
+          "source_file": {
+            "type": "string",
+            "description": "Source file where instance is defined"
+          },
+          "source_line": {
+            "type": "integer",
+            "description": "Line number in source file"
+          }
+        }
+      },
+      "description": "Module instances (hierarchy)"
+    },
+    "unsupported_constructs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["construct", "location"],
+        "properties": {
+          "construct": {
+            "type": "string",
+            "description": "Type of unsupported construct (e.g., 'interface', 'class')"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location in source (file:line)"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this construct is not supported"
+          }
+        }
+      },
+      "description": "Constructs that are not supported by current analysis"
+    },
+    "uncertainties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "reason"],
+        "properties": {
+          "field": {
+            "type": "string",
+            "description": "Field with uncertainty (e.g., 'clocks[0].edge')"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this field could not be determined"
+          }
+        }
+      },
+      "description": "Fields that could not be reliably determined"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["COMPLETE", "PARTIAL", "INCOMPLETE"],
+      "description": "Overall analysis status (COMPLETE: all fields determined, PARTIAL: some fields uncertain, INCOMPLETE: critical fields missing)"
+    },
+    "analysis_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of analysis"
+    },
+    "tool_versions": {
+      "type": "object",
+      "description": "Versions of tools used for analysis",
+      "properties": {
+        "extract_modules": {
+          "type": "string"
+        },
+        "extract_interfaces": {
+          "type": "string"
+        },
+        "scan_clock_reset": {
+          "type": "string"
+        },
+        "build_hierarchy": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Simulation log for testing - evidence conflict case
+# ModelSim style log
+#
+# This log demonstrates evidence conflict:
+# - Contains assertion failure
+# - But also shows Errors: 0
+# - And explicit TEST PASSED
+
+# Loading work.tb
+# ** Error: Assertion failure at time 120ns
+# ** Warning: Width mismatch in assignment
+# run -all
+# Running test scenario...
+# Checking byte 0: PASS
+# Checking byte 1: PASS
+# Checking byte 2: PASS
+#
+# TEST PASSED
+# Errors: 0
+# Warnings: 1
+#  $+finish
